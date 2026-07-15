@@ -24,6 +24,14 @@ export function el(tag, attrs = {}, children = []) {
   return node;
 }
 export const clearNode = (node) => { while (node.firstChild) node.removeChild(node.firstChild); };
+// Auto-grow a textarea to fit its content (paired with `.autogrow` CSS: overflow hidden).
+export function autoGrow(ta) {
+  const grow = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; };
+  ta.classList.add('autogrow');
+  ta.addEventListener('input', grow);
+  requestAnimationFrame(grow); // measure after mount
+  return ta;
+}
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 

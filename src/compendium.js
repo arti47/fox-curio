@@ -81,3 +81,12 @@ export function searchCompendium(query, catKey = 'all') {
 }
 
 export const compendiumCounts = () => COMPENDIUM.reduce((n, c) => n + c.entries.length, 0);
+
+// Per-category hits for the accordion view. Returns every category with its filtered entries.
+export function groupedHits(query = '') {
+  const q = query.trim().toLowerCase();
+  return COMPENDIUM.map((cat) => ({
+    key: cat.key, label: cat.label,
+    entries: q ? cat.entries.filter((e) => hay(e).includes(q)) : cat.entries,
+  }));
+}

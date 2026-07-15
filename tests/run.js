@@ -120,7 +120,7 @@ group('Travel', () => {
 });
 
 await (async () => {
-  const { COMPENDIUM, searchCompendium, compendiumCounts } = await import('../src/compendium.js');
+  const { COMPENDIUM, searchCompendium, compendiumCounts, groupedHits } = await import('../src/compendium.js');
   group('Compendium (browse + search)', () => {
     ok('52 customers present', COMPENDIUM.find((c) => c.key === 'customers').entries.length === 52);
     ok('10 towns present', COMPENDIUM.find((c) => c.key === 'towns').entries.length === 10);
@@ -128,6 +128,10 @@ await (async () => {
     ok('scoped search finds a recipe', searchCompendium('honey', 'recipes').length > 0);
     ok('flat search returns cross-category hits', searchCompendium('river').length > 0);
     ok('empty query returns everything in a category', searchCompendium('', 'fish').length === COMPENDIUM.find((c) => c.key === 'fish').entries.length);
+    // Accordion view (River tab): groupedHits returns every category, filtered per query.
+    ok('groupedHits: all categories on empty query', groupedHits('').length === COMPENDIUM.length);
+    ok('groupedHits: full customers count on empty query', groupedHits('').find((c) => c.key === 'customers').entries.length === 52);
+    ok('groupedHits: query filters within categories', groupedHits('honey').find((c) => c.key === 'recipes').entries.length > 0);
   });
 })();
 

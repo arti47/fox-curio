@@ -384,8 +384,10 @@ A5/A6). **An unticked box = data not extracted. Never build UI against an untick
   localStorage.
 - [x] **Phase 1 — Creation wizard.** Bookseller flow (T14) + shop flow (T15) with legal
   selection counts (pick-exactly-N enforced); "surprise me" quick-gen; floorplan-lite;
-  persistence + migration. `src/wizard.js`; 3 steps (bookseller/shop/review), Next gated on
-  validity, writes character (100 coins / 500 books / Bloom day 1) via Store.
+  persistence + migration. `src/wizard.js`; **9 logical-group pages** (name/species · age+moon+
+  birthday · past ×3 · items · quirks · brought · leftovers · floorplan+mooring · review) driven
+  by a `PAGES` array (per-page `valid`), progress bar, Next gated on validity, writes character
+  (100 coins / 500 books / Bloom day 1) via Store.
 - [x] **Phase 2 — Daybook core.** Resource header on every in-play screen; **built-in
   journal** (per-day entries, edit/delete, search) `screens.renderJournal`; calendar model
   `src/calendar.js` (week names, season/year rollover) + **End Day** lifecycle with confirm
@@ -413,8 +415,9 @@ A5/A6). **An unticked box = data not extracted. Never build UI against an untick
   2+-heart gift). Season rollover handled; repairs & mail tick on End Day / day off / travel.
 - [x] **Phase 5 — Compendium.** `src/compendium.js` + `renderLibrary` (River tab): searchable
   browse of customers/towns/shops/recipes/fish/animals/plants/trades/occupations/moons/genres/
-  items (T9–T13, T26–T29), flat + per-category search. (Cross-links from automated surfaces:
-  deferred polish.)
+  items (T9–T13, T26–T29), flat search + **collapsible per-category accordions** (native
+  `<details>`, all collapsed by default; a search auto-opens matching categories via
+  `compendium.groupedHits`). (Cross-links from automated surfaces: deferred polish.)
 - [~] **Phase 6 — Backup & polish (CONDITIONAL/stretch).** ✅ **Multi-year legacy carry**
   (`calendar.onYearRollover` + save-level `legacy` pool + wizard inheritance: a year boundary
   captures the shop's 3 leftovers, records the year on the character, seeds an end-of-year
@@ -505,6 +508,7 @@ public.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-07-15 | **UX revamp — wizard/textboxes/River/Home.** (1) Creation wizard split from 3 crammed steps into **9 one-group-per-page screens** (`PAGES` array with per-page `valid`, progress bar; Back/Next gating unchanged; Surprise/create/legacy-inherit intact). (2) **Bigger, auto-growing text areas**: new `core.autoGrow` (+`.autogrow`/`.tall`/`.tall-md` CSS + shared `.field` form-control styling that was previously unstyled outside modals); journal body starts ~260px and grows, wizard floorplan + edit-entry modal enlarged. (3) **River tab accordions**: `renderLibrary` now renders native `<details>` per category (all collapsed by default; search auto-opens matches) via new `compendium.groupedHits`; dropped the category `<select>`. (4) **Removed the Home "Rules library" panel** (+ its now-dead `dataStats` import). SW → v0.11.0. Harness +3 (groupedHits empty/full/filtered). | `npm test` **112/112**; headless Chromium @360px: Home card gone, wizard walked all 9 pages (Step N of 9, progressbar, Create on last, character persisted), journal textarea 260→766px on 15 lines, River 11 accordions all-collapsed → search "honey" auto-opened 2, **zero horizontal overflow** on every screen, **zero console errors** | fox-curio-v0.11.0 |
 | 2026-07-15 | **Rules-accuracy audit (pass 1) + Phase 6 legacy carry.** Audit findings closed (§9.1): **R1** close-early now skips the extra-customer roll (was counting extras then halving) — offered at customer-completion, straight to tally; **R2** weather-forced `closeEarly` tasks now steer to that early close (were ignored); **R3** added books→coins 1:1 trade (`town.tradeBooksForCoins` + Town UI), the §2.3 fallback when broke. **Legacy carry**: `calendar.onYearRollover` (save-level `legacy` pool + character mark + end-of-year reflection entry) wired into every day-advance (End Day / day off / holiday celebrate / travel); wizard inherits the 3 leftovers (preserved through Surprise, consumed on create). Also fixed a latent bug in `celebrate` (undefined `save` ref; now ticks repairs+mail too). SW → v0.10.0. Harness +7 (legacy rollover ×3, audit R1/R3 ×4). | `npm test` **109/109**; browser (SW cache busted): trade 0→40c/300→260b, close-early reached tally halved with **no** extra roll, year-rollover pool captured → new bookseller inherited all 3 leftovers (hint shown, preserved through Surprise, pool consumed, char legacy mark set); zero console errors | fox-curio-v0.10.0 |
 | 2026-07-15 | **Phase 5 — Compendium.** New `src/compendium.js` normalizes every reference record into searchable categories (52 customers, 10 towns w/ shops+people+special books+post, 11 recipes, 8 fish, 6 animals, 7 plants, 5 trades, 11 occupations, 5 moons, 20 genres, item catalog) with flat + per-category search; `renderLibrary` replaces the River-tab placeholder (search box + category select + results). SW → v0.9.0. Harness +6 (counts, scoped/flat/empty search). | `npm test` **102/102**; browser: River tab search "willow"→Weeping trees (1), "ginger"→2 recipes, category=Customers→52, zero console errors, 375px clean | fox-curio-v0.9.0 |
 | 2026-07-15 | **Phase 4 (part 4) — Recipes + Letters→gifts (Phase 4 complete).** `src/mail.js`: post-office availability by town+season (snail/owl/express, brisk pricing), send a letter to any heart-tracked customer, reply queued at 2× the typical mail time and delivered by a daily tick (End Day / day off / per travelled day); at 2+ hearts the reply carries a gift = a random item from a shop in the current town, added to supplies. Post-office card on Town (recipient/kind selects + pending list). Recipes: `shareMeal` modal on Day picks a dish (ingredients + shared-meal reveal) and seeds a journal entry. SW → v0.8.0. Harness +7 (mail availability, recipients, send/deduct/queue, gift-on-reply, no-gift under 2 hearts; recipes via compendium data). | `npm test` **96/96**; browser: snail letter 4c → countdown 30 (2×15), day-off ticked 30→28, Share a meal seeded "Shared Cheesy parsnips" journal entry; zero console errors | fox-curio-v0.8.0 |

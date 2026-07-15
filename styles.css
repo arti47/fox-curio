@@ -219,6 +219,28 @@ a { color: var(--accent); }
 .field { margin-bottom: 12px; }
 .field label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
 .field .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.field input, .field textarea, .field select {
+  width: 100%; font: inherit; padding: 11px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text);
+}
+.field textarea, .modal textarea { resize: vertical; line-height: 1.55; min-height: 120px; }
+.field textarea.tall { min-height: 260px; }        /* long-form journal body */
+.field textarea.tall-md { min-height: 150px; }      /* floorplan notes */
+textarea.autogrow { overflow: hidden; }             /* JS drives the height */
+.field input:focus-visible, .field textarea:focus-visible, .field select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---------- Accordion (River tab) ---------- */
+.accordion { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 10px; background: var(--surface); }
+.accordion > summary {
+  list-style: none; cursor: pointer; padding: 13px 15px; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: var(--tap);
+}
+.accordion > summary::-webkit-details-marker { display: none; }
+.accordion > summary::after { content: '⌄'; transition: transform .18s ease; color: var(--muted); font-size: 18px; }
+.accordion[open] > summary::after { transform: rotate(180deg); }
+.accordion > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.accordion .acc-count { font-weight: 400; color: var(--muted); font-size: 13px; }
+.accordion__body { padding: 0 15px 6px; border-top: 1px solid var(--border); }
 
 .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .row:last-child { border-bottom: 0; }
@@ -232,6 +254,8 @@ a { color: var(--accent); }
 .chip-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .field label .count { font-weight: 400; color: var(--muted); font-size: 13px; }
 .field label .count.ok { color: var(--accent-2); font-weight: 600; }
+.wizard-progress { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.wizard-progress__fill { display: block; height: 100%; background: var(--accent); transition: width .25s ease; }
 .wizard-nav { display: flex; gap: 10px; justify-content: space-between; margin-top: 18px; position: sticky; bottom: calc(var(--nav-h) + 8px); }
 .wizard-nav .btn { flex: 1; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }

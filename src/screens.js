@@ -1,10 +1,10 @@
 // screens.js — top-level screen renderers + persistent resource header.
 // Phase 0: Home + Settings are live; Create/Day/Journal/Library are gated placeholders
 // (built in later phases per CLAUDE.md §7). Everything renders with zero console errors.
-import { el, $, clearNode, APP, d6 } from './core.js';
+import { el, $, clearNode, APP, d6, autoGrow } from './core.js';
 import { Store } from './store.js';
 import { Settings, applyTheme, nextTheme } from './settings.js';
-import { dataStats, season, bookCap, holidayOn } from './rules.js';
+import { season, bookCap, holidayOn } from './rules.js';
 import { META, SEASONS, HOLIDAYS } from '../data.js';
 import { endDaySummary, nextCalendar, onYearRollover } from './calendar.js';
 import * as Engine from './engine.js';
@@ -14,7 +14,7 @@ import { canTravel, travelDays, isUpstream, arrivalPrompt } from './travel.js';
 import { activeRepairs, hasRepairs, selfFix, hireTrade, tickRepairs, ownsItem } from './repairs.js';
 import { availableKinds, letterRecipients, sendLetter, pendingMail, tickMail, KIND_LABEL } from './mail.js';
 import { RECIPES } from '../data-compendium.js';
-import { COMPENDIUM, searchCompendium } from './compendium.js';
+import { groupedHits } from './compendium.js';
 import { TOWNS, TRADES } from '../data-compendium.js';
 import { showToast, confirmModal, promptModal, modal, actionToast } from './ui.js';
 import { go } from './router.js';
@@ -68,18 +68,7 @@ export function renderHome(root) {
     );
   }
 
-  // Data self-check (proves the rules library loaded)
-  const st = dataStats();
-  const check = el('div', { class: 'card' }, [
-    el('h2', { text: 'Rules library' }),
-    el('div', { class: 'stat-grid' }, [
-      stat(st.customers, 'customers'), stat(st.seasons, 'seasons'), stat(st.holidays, 'holidays'),
-      stat(st.towns, 'towns'), stat(st.recipes, 'recipes'), stat(st.fish, 'fish'),
-    ]),
-    el('p', { class: 'small muted', style: 'margin-top:10px', text: `Loaded from the core book: ${st.customers} customer prompts, ${st.genres} genres, ${st.trades} trades, ${st.creationNames} starter names.` }),
-  ]);
-
-  root.append(hero, cta, check);
+  root.append(hero, cta);
 }
 function stat(n, label) { return el('div', { class: 'stat' }, [el('b', { text: String(n) }), el('span', { text: label })]); }
 
@@ -94,37 +83,39 @@ function placeholder(root, { icon, title, note, phase }) {
     ]),
   ]));
 }
+function compendiumEntryRow(cat, entry) {
+  return el('div', { class: 'row' }, [el('div', { class: 'row__text' }, [
+    el('b', {}, [entry.title, entry.subtitle ? el('span', { class: 'pill', style: 'margin-left:6px', text: entry.subtitle }) : '']),
+    entry.body ? el('div', { class: 'small muted', text: entry.body }) : null,
+    ...entry.lines.map((l) => el('div', { class: 'small muted', text: l })),
+  ])]);
+}
 export function renderLibrary(root) {
   root.append(el('div', { class: 'card' }, [
     el('h1', { text: 'The River' }),
-    el('p', { class: 'lede', text: 'A compendium of everyone and everything along the River — search or browse by kind.' }),
+    el('p', { class: 'lede', text: 'A compendium of everyone and everything along the River — search, or tap a category to open it.' }),
   ]));
   const search = el('input', { type: 'text', placeholder: 'Search the compendium…', 'aria-label': 'Search the compendium' });
-  const catSel = el('select', { 'aria-label': 'Category' }, [
-    el('option', { value: 'all', text: 'All' }),
-    ...COMPENDIUM.map((c) => el('option', { value: c.key, text: `${c.label} (${c.entries.length})` })),
-  ]);
-  const results = el('div', {});
+  const groups = el('div', {});
   const draw = () => {
-    clearNode(results);
-    const hits = searchCompendium(search.value, catSel.value);
-    results.append(el('p', { class: 'small muted', text: `${hits.length} result${hits.length === 1 ? '' : 's'}` }));
-    for (const { cat, entry } of hits.slice(0, 200)) {
-      results.append(el('div', { class: 'row' }, [el('div', { class: 'row__text' }, [
-        el('b', {}, [entry.title, el('span', { class: 'pill', style: 'margin-left:6px', text: entry.subtitle || cat })]),
-        entry.body ? el('div', { class: 'small muted', text: entry.body }) : null,
-        ...entry.lines.map((l) => el('div', { class: 'small muted', text: l })),
-      ])]));
+    clearNode(groups);
+    const q = search.value.trim();
+    const cats = groupedHits(q);
+    let total = 0;
+    for (const cat of cats) {
+      if (q && !cat.entries.length) continue; // hide empty categories while searching
+      total += cat.entries.length;
+      const body = el('div', { class: 'accordion__body' }, cat.entries.slice(0, 200).map((e) => compendiumEntryRow(cat.label, e)));
+      const acc = el('details', { class: 'accordion', open: q ? true : false }, [ // collapsed by default; search auto-opens
+        el('summary', {}, [el('span', { text: cat.label }), el('span', { class: 'acc-count', text: String(cat.entries.length) })]),
+        body,
+      ]);
+      groups.append(acc);
     }
-    if (!hits.length) results.append(el('p', { class: 'muted small', text: 'Nothing matches that search.' }));
+    if (q && !total) groups.append(el('p', { class: 'muted small', text: 'Nothing matches that search.' }));
   };
   search.addEventListener('input', draw);
-  catSel.addEventListener('change', draw);
-  root.append(el('div', { class: 'card' }, [
-    el('div', { class: 'field' }, [search]),
-    el('div', { class: 'field' }, [catSel]),
-    results,
-  ]));
+  root.append(el('div', { class: 'card' }, [el('div', { class: 'field' }, [search]), groups]));
   draw();
 }
 
@@ -609,7 +600,8 @@ export function renderJournal(root) {
 
   // New entry for the current day
   const titleInput = el('input', { type: 'text', placeholder: 'Title (optional)' });
-  const bodyInput = el('textarea', { rows: '4', placeholder: `Write your entry for ${dateLabel(cal)}…` });
+  const bodyInput = el('textarea', { class: 'tall', placeholder: `Write your entry for ${dateLabel(cal)}…` });
+  autoGrow(bodyInput);
   const addCard = el('div', { class: 'card' }, [
     el('h2', { text: `New entry — ${dateLabel(cal)}` }),
     el('div', { class: 'field' }, [titleInput]),

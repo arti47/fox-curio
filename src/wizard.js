@@ -1,5 +1,5 @@
-// wizard.js — character + shop creation wizard (Phase 1). Legality enforced per step.
-import { el, clearNode, uid, pick } from './core.js';
+// wizard.js — character + shop creation wizard (Phase 1). One logical small group per page.
+import { el, clearNode, uid, pick, autoGrow } from './core.js';
 import { CREATION, SHOP_SETUP } from '../data.js';
 import { TOWNS } from '../data-compendium.js';
 import { Store } from './store.js';
@@ -22,25 +22,41 @@ function fresh() {
   };
 }
 
+// Each page: a title, a render fn, and a validity test. Logical small groups (one screen each).
+const PAGES = [
+  { label: 'Name', render: pageName, valid: (d) => d.name && d.species },
+  { label: 'Birth', render: pageBirth, valid: (d) => d.age && d.moon && d.birthDay },
+  { label: 'Your past', render: pagePast, valid: (d) => d.acquisition && d.formerLife && d.booksToYou },
+  { label: 'Signature items', render: pageItems, valid: (d) => d.items.length === 3 },
+  { label: 'Shop quirks', render: pageQuirks, valid: (d) => d.quirks.length === 2 },
+  { label: 'What you bring', render: pageBrought, valid: (d) => d.broughtItems.length === 3 },
+  { label: 'Left behind', render: pageLeftovers, valid: (d) => d.leftovers.length === 3 },
+  { label: 'Floorplan & mooring', render: pageShopFinish, valid: (d) => d.mooredTown },
+  { label: 'Review', render: stepReview, valid: () => true },
+];
+
 export function renderCreate(root) {
   if (!draft) {
     draft = fresh(); step = 0;
     const pool = Store.get().legacy;
     if (pool && pool.length === 3) { draft.leftovers = [...pool]; draft._inherited = true; }
   }
-  const steps = [stepBookseller, stepShop, stepReview];
   const wrap = el('div', {});
+  const pct = Math.round((step / (PAGES.length - 1)) * 100);
   root.append(
     el('div', { class: 'wizard-head' }, [
       el('h1', { text: 'Create your bookseller' }),
-      el('p', { class: 'lede', text: `Step ${step + 1} of 3 — ${['The bookseller', 'The bookshop', 'Review'][step]}` }),
-      el('div', { class: 'pill-row', style: 'margin-bottom:14px' }, [
+      el('p', { class: 'lede', text: `Step ${step + 1} of ${PAGES.length} — ${PAGES[step].label}` }),
+      el('div', { class: 'wizard-progress', role: 'progressbar', 'aria-valuenow': String(pct), 'aria-valuemin': '0', 'aria-valuemax': '100' }, [
+        el('span', { class: 'wizard-progress__fill', style: `width:${pct}%` }),
+      ]),
+      el('div', { class: 'pill-row', style: 'margin:12px 0 14px' }, [
         el('button', { class: 'btn btn--ghost btn--sm', text: '🎲 Surprise me', onClick: () => { surprise(); go('create'); } }),
       ]),
     ]),
     wrap,
   );
-  steps[step](wrap);
+  PAGES[step].render(wrap);
   root.append(navBar());
 }
 
@@ -78,12 +94,13 @@ function multiField(title, options, key, count) {
   box.append(row);
   return box;
 }
-function textField(title, key, { placeholder = '', suggestions = null, multiline = false } = {}) {
+function textField(title, key, { placeholder = '', suggestions = null, multiline = false, taClass = '' } = {}) {
   const box = el('div', { class: 'field' }, [el('label', { text: title })]);
-  const input = multiline ? el('textarea', { rows: '3', placeholder }) : el('input', { type: 'text', placeholder });
+  const input = multiline ? el('textarea', { placeholder, class: taClass }) : el('input', { type: 'text', placeholder });
   input.value = draft[key];
   input.addEventListener('input', () => { draft[key] = input.value; refreshNav(); });
   box.append(input);
+  if (multiline) autoGrow(input);
   if (suggestions) {
     const row = el('div', { class: 'pill-row', style: 'margin-top:8px' });
     for (const s of suggestions) row.append(chip(s, draft[key] === s, () => { draft[key] = s; go('create'); }));
@@ -92,19 +109,29 @@ function textField(title, key, { placeholder = '', suggestions = null, multiline
   return box;
 }
 
-// ---- steps ----
-function stepBookseller(root) {
+// ---- pages (logical small groups) ----
+function pageName(root) {
   root.append(
     textField('Name', 'name', { placeholder: 'Choose or type your own', suggestions: CREATION.names }),
     textField('Species', 'species', { placeholder: 'Choose or type your own', suggestions: CREATION.species }),
+  );
+}
+function pageBirth(root) {
+  root.append(
     singleField('Age', CREATION.ages, 'age'),
+    singleField('Birth moon', CREATION.moons.map((m) => ({ value: m.key, label: m.name })), 'moon'),
+    numberField('Birthday (1–20)', 'birthDay'),
+  );
+}
+function pagePast(root) {
+  root.append(
     singleField('How did you come by the bookshop?', CREATION.acquisition.map((t) => ({ value: t, label: t })), 'acquisition'),
     singleField('Who were you before?', formerLifeAll.map((f) => ({ value: f.t, label: f.t })), 'formerLife'),
     singleField('What are books to you?', CREATION.booksToYou.map((t) => ({ value: t, label: t })), 'booksToYou'),
-    singleField('Birth moon', CREATION.moons.map((m) => ({ value: m.key, label: m.name })), 'moon'),
-    numberField('Birthday (1–20)', 'birthDay'),
-    multiField('Choose three signature items', CREATION.items, 'items', 3),
   );
+}
+function pageItems(root) {
+  root.append(multiField('Choose three signature items', CREATION.items, 'items', 3));
 }
 function numberField(title, key) {
   const box = el('div', { class: 'field' }, [el('label', { text: title })]);
@@ -118,12 +145,18 @@ function numberField(title, key) {
   box.append(input);
   return box;
 }
-function stepShop(root) {
+function pageQuirks(root) {
   root.append(multiField('Choose two quirks', SHOP_SETUP.quirks, 'quirks', 2));
+}
+function pageBrought(root) {
   root.append(multiField('What do you bring to the shop? Choose three', SHOP_SETUP.broughtItems, 'broughtItems', 3));
+}
+function pageLeftovers(root) {
   if (draft._inherited) root.append(el('div', { class: 'hint', text: '🕯 Three leftover marks carried over from last year\'s shop — change them if you wish.' }));
   root.append(multiField('What did the previous owner leave? Choose three', SHOP_SETUP.leftovers, 'leftovers', 3));
-  root.append(textField('Floorplan notes (optional)', 'floorplan', { placeholder: 'Sketch the layout in words — where the counter, couch and shelves sit…', multiline: true }));
+}
+function pageShopFinish(root) {
+  root.append(textField('Floorplan notes (optional)', 'floorplan', { placeholder: 'Sketch the layout in words — where the counter, couch and shelves sit…', multiline: true, taClass: 'tall-md' }));
   root.append(singleField('Where is the shop moored to start?', TOWNS.map((t) => ({ value: t.key, label: t.name })), 'mooredTown', 'You begin here while the River thaws (travel resumes on the 5th of Bloom).'));
 }
 function stepReview(root) {
@@ -147,19 +180,16 @@ function stepReview(root) {
 }
 
 // ---- validation + nav ----
-function validStep() {
-  if (step === 0) return draft.name && draft.species && draft.age && draft.acquisition && draft.formerLife && draft.booksToYou && draft.moon && draft.birthDay && draft.items.length === 3;
-  if (step === 1) return draft.quirks.length === 2 && draft.broughtItems.length === 3 && draft.leftovers.length === 3 && draft.mooredTown;
-  return true;
-}
+function validStep() { return !!PAGES[step].valid(draft); }
 function navBar() {
+  const last = PAGES.length - 1;
   const bar = el('div', { class: 'wizard-nav' });
   if (step > 0) bar.append(el('button', { class: 'btn btn--ghost', text: 'Back', onClick: () => { step--; go('create'); } }));
-  const next = el('button', { class: 'btn', id: 'wiz-next', text: step === 2 ? 'Create bookseller' : 'Next' });
+  const next = el('button', { class: 'btn', id: 'wiz-next', text: step === last ? 'Create bookseller' : 'Next' });
   next.disabled = !validStep();
   next.addEventListener('click', () => {
     if (!validStep()) return;
-    if (step < 2) { step++; go('create'); }
+    if (step < last) { step++; go('create'); }
     else finish();
   });
   bar.append(next);

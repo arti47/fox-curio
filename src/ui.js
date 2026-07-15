@@ -1,5 +1,5 @@
 // ui.js — themed modals/toasts/confirm/prompt. Accessible: focus trap, Escape, focus restore.
-import { el, $, clearNode } from './core.js';
+import { el, $, clearNode, autoGrow } from './core.js';
 
 let toastWrap = null;
 function ensureToastWrap() {
@@ -71,9 +71,10 @@ export function confirmModal(message, { title = 'Confirm', okLabel = 'OK', cance
 export function promptModal(message, { title = 'Enter', value = '', okLabel = 'Save', multiline = false } = {}) {
   return new Promise((resolve) => {
     const input = multiline
-      ? el('textarea', { rows: '4' }) : el('input', { type: 'text' });
+      ? el('textarea', { class: 'tall', style: 'min-height:220px' }) : el('input', { type: 'text' });
     input.value = value;
     const wrap = el('div', {}, [el('p', { text: message }), input]);
+    if (multiline) autoGrow(input);
     modal({
       title, content: wrap,
       actions: [
