@@ -22,16 +22,12 @@ function fresh() {
   };
 }
 
-// Each page: a title, a render fn, and a validity test. Logical small groups (one screen each).
+// Each page: a title, a render fn, and a validity test. Dropdown-driven; 5 pages.
 const PAGES = [
-  { label: 'Name', render: pageName, valid: (d) => d.name && d.species },
-  { label: 'Birth', render: pageBirth, valid: (d) => d.age && d.moon && d.birthDay },
+  { label: 'The bookseller', render: pageIdentity, valid: (d) => d.name && d.species && d.age && d.moon && d.birthDay },
   { label: 'Your past', render: pagePast, valid: (d) => d.acquisition && d.formerLife && d.booksToYou },
   { label: 'Signature items', render: pageItems, valid: (d) => d.items.length === 3 },
-  { label: 'Shop quirks', render: pageQuirks, valid: (d) => d.quirks.length === 2 },
-  { label: 'What you bring', render: pageBrought, valid: (d) => d.broughtItems.length === 3 },
-  { label: 'Left behind', render: pageLeftovers, valid: (d) => d.leftovers.length === 3 },
-  { label: 'Floorplan & mooring', render: pageShopFinish, valid: (d) => d.mooredTown },
+  { label: 'The shop', render: pageShop, valid: (d) => d.quirks.length === 2 && d.broughtItems.length === 3 && d.leftovers.length === 3 && d.mooredTown },
   { label: 'Review', render: stepReview, valid: () => true },
 ];
 
@@ -60,104 +56,118 @@ export function renderCreate(root) {
   root.append(navBar());
 }
 
-// ---- shared field builders ----
-function chip(label, selected, onClick) {
-  return el('button', { class: `chip chip-btn ${selected ? 'is-sel' : ''}`, 'aria-pressed': selected ? 'true' : 'false', text: label, onClick });
-}
-function singleField(title, options, key, hint) {
+// ---- shared field builders (dropdown-driven) ----
+const optVal = (o) => (typeof o === 'string' ? o : o.value);
+const optLabel = (o) => (typeof o === 'string' ? o : o.label);
+
+// A single-choice <select>. Plain selects re-gate Next without a full re-render (no scroll jump).
+function selectField(title, options, key, hint) {
   const box = el('div', { class: 'field' }, [el('label', { text: title })]);
-  const row = el('div', { class: 'pill-row' });
-  for (const opt of options) {
-    const val = typeof opt === 'string' ? opt : opt.value;
-    const label = typeof opt === 'string' ? opt : opt.label;
-    row.append(chip(label, draft[key] === val, () => { draft[key] = val; go('create'); }));
-  }
-  box.append(row);
+  const opts = [el('option', { value: '', text: '— choose —', selected: !draft[key] })];
+  for (const o of options) opts.push(el('option', { value: optVal(o), text: optLabel(o), selected: optVal(o) === draft[key] }));
+  const sel = el('select', { 'aria-label': title }, opts);
+  sel.addEventListener('change', () => { draft[key] = sel.value; refreshNav(); });
+  box.append(sel);
   if (hint) box.append(el('div', { class: 'hint', text: hint }));
   return box;
 }
-function multiField(title, options, key, count) {
+
+// A single-choice <select> with <optgroup>s. groups: [{ label, options:[{value,label}] }].
+function selectGroupedField(title, groups, key, hint) {
+  const box = el('div', { class: 'field' }, [el('label', { text: title })]);
+  const sel = el('select', { 'aria-label': title }, [el('option', { value: '', text: '— choose —', selected: !draft[key] })]);
+  for (const g of groups) {
+    const og = el('optgroup', { label: g.label });
+    for (const o of g.options) og.append(el('option', { value: optVal(o), text: optLabel(o), selected: optVal(o) === draft[key] }));
+    sel.append(og);
+  }
+  sel.addEventListener('change', () => { draft[key] = sel.value; refreshNav(); });
+  box.append(sel);
+  if (hint) box.append(el('div', { class: 'hint', text: hint }));
+  return box;
+}
+
+// Suggestions-or-custom: a dropdown of suggestions plus a "Custom…" option revealing a text box.
+function suggestField(title, key, suggestions) {
+  const box = el('div', { class: 'field' }, [el('label', { text: title })]);
+  const isCustom = !!draft[key] && !suggestions.includes(draft[key]);
+  const opts = [el('option', { value: '', text: '— choose —', selected: !draft[key] })];
+  for (const s of suggestions) opts.push(el('option', { value: s, text: s, selected: draft[key] === s }));
+  opts.push(el('option', { value: '__custom__', text: 'Custom…', selected: isCustom }));
+  const sel = el('select', { 'aria-label': title }, opts);
+  const text = el('input', { type: 'text', placeholder: `Your own ${title.toLowerCase()}`, style: 'margin-top:8px' });
+  text.value = isCustom ? draft[key] : '';
+  text.hidden = !isCustom;
+  sel.addEventListener('change', () => {
+    if (sel.value === '__custom__') { text.hidden = false; draft[key] = text.value || ''; text.focus(); }
+    else { text.hidden = true; draft[key] = sel.value; }
+    refreshNav();
+  });
+  text.addEventListener('input', () => { draft[key] = text.value; refreshNav(); });
+  box.append(sel, text);
+  return box;
+}
+
+// Pick-exactly-N via N dropdowns; each slot excludes values chosen in the other slots.
+function multiSelectField(title, options, key, count, hint) {
   const chosen = draft[key];
   const box = el('div', { class: 'field' }, [
     el('label', {}, [`${title} `, el('span', { class: `count ${chosen.length === count ? 'ok' : ''}`, text: `(${chosen.length}/${count})` })]),
   ]);
-  const row = el('div', { class: 'pill-row' });
-  for (const opt of options) {
-    const sel = chosen.includes(opt);
-    row.append(chip(opt, sel, () => {
-      if (sel) draft[key] = chosen.filter((x) => x !== opt);
-      else if (chosen.length < count) draft[key] = [...chosen, opt];
-      else { showToast(`Choose exactly ${count}.`); return; }
-      go('create');
-    }));
+  for (let i = 0; i < count; i++) {
+    const cur = chosen[i] || '';
+    const others = new Set(chosen.filter((_, j) => j !== i));
+    const opts = [el('option', { value: '', text: '— choose —', selected: cur === '' })];
+    for (const o of options) {
+      const v = optVal(o);
+      if (others.has(v)) continue; // no duplicates across slots
+      opts.push(el('option', { value: v, text: optLabel(o), selected: v === cur }));
+    }
+    const sel = el('select', { 'aria-label': `${title} ${i + 1}` }, opts);
+    sel.addEventListener('change', () => { const arr = chosen.slice(); arr[i] = sel.value; draft[key] = arr.filter(Boolean); go('create'); });
+    box.append(el('div', { class: 'field' }, [sel]));
   }
-  box.append(row);
-  return box;
-}
-function textField(title, key, { placeholder = '', suggestions = null, multiline = false, taClass = '' } = {}) {
-  const box = el('div', { class: 'field' }, [el('label', { text: title })]);
-  const input = multiline ? el('textarea', { placeholder, class: taClass }) : el('input', { type: 'text', placeholder });
-  input.value = draft[key];
-  input.addEventListener('input', () => { draft[key] = input.value; refreshNav(); });
-  box.append(input);
-  if (multiline) autoGrow(input);
-  if (suggestions) {
-    const row = el('div', { class: 'pill-row', style: 'margin-top:8px' });
-    for (const s of suggestions) row.append(chip(s, draft[key] === s, () => { draft[key] = s; go('create'); }));
-    box.append(row);
-  }
+  if (hint) box.append(el('div', { class: 'hint', text: hint }));
   return box;
 }
 
-// ---- pages (logical small groups) ----
-function pageName(root) {
+// ---- pages ----
+function pageIdentity(root) {
   root.append(
-    textField('Name', 'name', { placeholder: 'Choose or type your own', suggestions: CREATION.names }),
-    textField('Species', 'species', { placeholder: 'Choose or type your own', suggestions: CREATION.species }),
-  );
-}
-function pageBirth(root) {
-  root.append(
-    singleField('Age', CREATION.ages, 'age'),
-    singleField('Birth moon', CREATION.moons.map((m) => ({ value: m.key, label: m.name })), 'moon'),
-    numberField('Birthday (1–20)', 'birthDay'),
+    suggestField('Name', 'name', CREATION.names),
+    suggestField('Species', 'species', CREATION.species),
+    selectField('Age', CREATION.ages, 'age'),
+    selectField('Birth moon', CREATION.moons.map((m) => ({ value: m.key, label: m.name })), 'moon'),
+    selectField('Birthday', Array.from({ length: 20 }, (_, i) => String(i + 1)), 'birthDay'),
   );
 }
 function pagePast(root) {
   root.append(
-    singleField('How did you come by the bookshop?', CREATION.acquisition.map((t) => ({ value: t, label: t })), 'acquisition'),
-    singleField('Who were you before?', formerLifeAll.map((f) => ({ value: f.t, label: f.t })), 'formerLife'),
-    singleField('What are books to you?', CREATION.booksToYou.map((t) => ({ value: t, label: t })), 'booksToYou'),
+    selectField('How did you come by the bookshop?', CREATION.acquisition, 'acquisition'),
+    selectGroupedField('Who were you before?', [
+      { label: 'Bookseller', options: CREATION.formerLifeBookseller },
+      { label: 'Other path', options: CREATION.formerLifeOther },
+    ], 'formerLife'),
+    selectField('What are books to you?', CREATION.booksToYou, 'booksToYou'),
   );
 }
 function pageItems(root) {
-  root.append(multiField('Choose three signature items', CREATION.items, 'items', 3));
+  root.append(multiSelectField('Choose three signature items', CREATION.items, 'items', 3));
 }
-function numberField(title, key) {
-  const box = el('div', { class: 'field' }, [el('label', { text: title })]);
-  const input = el('input', { type: 'number', min: '1', max: '20', inputmode: 'numeric' });
-  input.value = draft[key];
-  input.addEventListener('input', () => {
-    let v = parseInt(input.value, 10);
-    draft[key] = Number.isFinite(v) ? String(Math.max(1, Math.min(20, v))) : '';
-    refreshNav();
-  });
-  box.append(input);
-  return box;
-}
-function pageQuirks(root) {
-  root.append(multiField('Choose two quirks', SHOP_SETUP.quirks, 'quirks', 2));
-}
-function pageBrought(root) {
-  root.append(multiField('What do you bring to the shop? Choose three', SHOP_SETUP.broughtItems, 'broughtItems', 3));
-}
-function pageLeftovers(root) {
+function pageShop(root) {
+  root.append(
+    multiSelectField('Choose two quirks', SHOP_SETUP.quirks, 'quirks', 2),
+    multiSelectField('What do you bring to the shop? Choose three', SHOP_SETUP.broughtItems, 'broughtItems', 3),
+  );
   if (draft._inherited) root.append(el('div', { class: 'hint', text: '🕯 Three leftover marks carried over from last year\'s shop — change them if you wish.' }));
-  root.append(multiField('What did the previous owner leave? Choose three', SHOP_SETUP.leftovers, 'leftovers', 3));
-}
-function pageShopFinish(root) {
-  root.append(textField('Floorplan notes (optional)', 'floorplan', { placeholder: 'Sketch the layout in words — where the counter, couch and shelves sit…', multiline: true, taClass: 'tall-md' }));
-  root.append(singleField('Where is the shop moored to start?', TOWNS.map((t) => ({ value: t.key, label: t.name })), 'mooredTown', 'You begin here while the River thaws (travel resumes on the 5th of Bloom).'));
+  root.append(multiSelectField('What did the previous owner leave? Choose three', SHOP_SETUP.leftovers, 'leftovers', 3));
+  const fp = el('div', { class: 'field' }, [el('label', { text: 'Floorplan notes (optional)' })]);
+  const ta = el('textarea', { class: 'tall-md', placeholder: 'Sketch the layout in words — where the counter, couch and shelves sit…' });
+  ta.value = draft.floorplan;
+  ta.addEventListener('input', () => { draft.floorplan = ta.value; });
+  fp.append(autoGrow(ta));
+  root.append(fp);
+  root.append(selectField('Where is the shop moored to start?', TOWNS.map((t) => ({ value: t.key, label: t.name })), 'mooredTown', 'You begin here while the River thaws (travel resumes on the 5th of Bloom).'));
 }
 function stepReview(root) {
   const town = TOWNS.find((t) => t.key === draft.mooredTown);
