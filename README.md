@@ -4,9 +4,11 @@ A personal, offline-capable companion for the solo journalling game *Fox Curio's
 Bookshop: A Year Upon a River* by Ella Lim (Lost Ways Club, 2023). It runs your days on the
 River — drawing cards, rolling dice, tracking coins/books/hearts, and holding your daybook.
 
-> **Status:** Phase 0 (Foundations) complete — full rules data library, watercolor-river
-> theme, installable PWA shell, and a bootable app with local saving. The creation wizard,
-> day engine, journal and compendium arrive in later phases (see `CLAUDE.md`).
+> **Status:** Phases 0–5 complete plus multi-year legacy carry — creation wizard, full day
+> engine, all sub-loops (fishing, town economy, travel, repairs + tradesanimals, letters →
+> gifts, recipes, holidays, book orders), built-in journal, and a searchable River
+> compendium. 109/109 regression checks pass. Remaining work is optional stretch (cloud
+> backup, manual dice-entry toggle); see `CLAUDE.md` for the roadmap and changelog.
 
 ## Run it
 
