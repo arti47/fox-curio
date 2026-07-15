@@ -254,11 +254,23 @@ textarea.autogrow { overflow: hidden; }             /* JS drives the height */
 .chip-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .field label .count { font-weight: 400; color: var(--muted); font-size: 13px; }
 .field label .count.ok { color: var(--accent-2); font-weight: 600; }
-.wiz-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 14px 15px; margin-bottom: 14px; }
-.wiz-card > label { margin-bottom: 8px; }
-.wiz-card .field { margin-bottom: 8px; }
+.wiz-card {
+  background: color-mix(in srgb, var(--surface), var(--text) 7%);
+  border: 1px solid color-mix(in srgb, var(--border), var(--text) 22%);
+  border-radius: 14px; padding: 16px; margin-bottom: 18px;
+  box-shadow: 0 1px 2px var(--shadow), 0 3px 10px var(--shadow);
+}
+/* Question = accent eyebrow; the control below reads as the answer. */
+.wiz-card > label {
+  display: block; margin-bottom: 11px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--accent); line-height: 1.35;
+}
+.wiz-card > label .count { text-transform: none; letter-spacing: 0; color: var(--muted); }
+.wiz-card > label .count.ok { color: var(--accent-2); }
+.wiz-card .field { margin-bottom: 10px; }
 .wiz-card .field:last-child { margin-bottom: 0; }
-.wiz-card .hint { margin-top: 8px; }
+.wiz-card .hint { margin-top: 9px; }
 .wizard-progress { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; }
 .wizard-progress__fill { display: block; height: 100%; background: var(--accent); transition: width .25s ease; }
 .wizard-nav { display: flex; gap: 10px; justify-content: space-between; margin-top: 18px; position: sticky; bottom: calc(var(--nav-h) + 8px); }
