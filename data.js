@@ -188,7 +188,7 @@ export const SEASONS = {
       { id: 17, text: 'Sweep blossoms off the deck and gutters all day.' },
       { id: 18, text: 'Read a new arrival and write a shelf review. Which book, which genre?' },
       { id: 19, text: 'Set up a themed sale with posters. Draw +1 customer card for the next two days.', effect: { bonusCards: 1, days: 2 } },
-      { id: 20, text: 'Design merch: 20 book bags at 10 coins. Even roll = a customer buys one.' },
+      { id: 20, text: 'Design merch: 20 book bags at 10 coins. Even roll = a customer buys one.', roll: { die: 'd6', note: 'Even result = a customer buys a book bag (10 coins). Jot the outcome in your journal.' } },
     ],
     earnings: [32, 75, 83, 55, 42, 68],           // d6 -> coins, p83
     booksSold: [50, 40, 35, 30, 60, 70],          // d6 -> value, then + second d6, p83
@@ -617,6 +617,22 @@ export const ORDER_OF_PLAY = {
     'Record customers and earnings as zero; deduct any purchases.',
   ],
   closingEarly: 'Play the customer cards for the day but skip the extra-customer roll; tally customers, earnings and books sold as usual, then halve them.',
+};
+
+// ---------------------------------------------------------------------------
+// JOURNAL_GUIDE — how to journal from the day's prompts (house aid; paraphrased, pp30-35).
+// Rendered in Settings. The dice/cards are an oracle; the journal is the actual play.
+// ---------------------------------------------------------------------------
+export const JOURNAL_GUIDE = {
+  intro: 'Fox Curio is a solo journalling game — the cards and dice are only prompts, and your journal is where the game really happens. Each day the app draws the weather, rolls your task, and flips your customers; you read those prompts and write the day in your daybook.',
+  steps: [
+    'Read the weather and its forecast — it sets the mood and how busy the day will be.',
+    'Read the daily task: some are simply things to write about (What titles? Who dirtied the windows?), a few carry a mechanical effect the app applies for you (repairs, fewer cards, an early close).',
+    'When a task asks you to roll and decide an outcome (e.g. "even roll = a customer buys one"), use the 🎲 Roll button on the task, read the result, then write what you chose to happen.',
+    'Flip each customer, read their prompt and the book genre they want, and journal the encounter — fill a heart when someone shares something that matters.',
+    'At day\'s end the app tallies customers, coins earned and books sold. Write your closing lines, then End the day.',
+  ],
+  tip: 'There are no wrong answers and nothing to win — write as much or as little as you like. On days off (town, travel, fishing, festivities) you record no customers or earnings, just the story.',
 };
 
 // ---------------------------------------------------------------------------

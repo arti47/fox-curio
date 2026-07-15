@@ -1,7 +1,7 @@
 // tests/run.js — Phase 0 regression harness (data + rules invariants).
 // Pure Node ESM; no browser needed. Browser boot/wiring smoke (Playwright) is added in the
 // hardening phase (CLAUDE.md §8.5). Run: `npm test`.
-import { META, SEASONS, CUSTOMERS, BOOK_GENRES, HOLIDAYS, CREATION, SHOP_SETUP } from '../data.js';
+import { META, SEASONS, CUSTOMERS, BOOK_GENRES, HOLIDAYS, CREATION, SHOP_SETUP, ORDER_OF_PLAY, JOURNAL_GUIDE } from '../data.js';
 import { TOWNS, POST_OFFICES, DISTANCES, RECIPES, FISH, TRADES, ITEMS, REPAIR_TRADES } from '../data-compendium.js';
 import {
   customerByCard, weatherByRank, taskByRoll, genreByRoll, extraCustomersByRoll,
@@ -257,6 +257,22 @@ await (async () => {
   });
   Eng.abandonSession();
 })();
+
+group('Task in-prompt rolls + play guide', () => {
+  // Audit: exactly the tasks with an embedded die-roll carry a `roll` field. Bloom-20 is the one.
+  const flagged = [];
+  META.seasons.forEach((key, si) => SEASONS[key].tasks.forEach((t) => { if (t.roll) flagged.push(`${key}-${t.id}`); }));
+  ok('exactly one task flagged with a roll (bloom-20)', flagged.length === 1 && flagged[0] === 'bloom-20');
+  const bloom20 = taskByRoll(0, 20);
+  ok('bloom-20 roll has a die + note', bloom20.roll && bloom20.roll.die === 'd6' && !!bloom20.roll.note);
+  // No task whose text says "even/odd roll" is left unflagged.
+  META.seasons.forEach((key) => SEASONS[key].tasks.forEach((t) => {
+    if (/\b(even|odd) roll\b/i.test(t.text)) ok(`${key}-${t.id} even/odd-roll task is flagged`, !!t.roll);
+  }));
+  // Play/journal guide is present and shaped for rendering.
+  ok('JOURNAL_GUIDE has intro + steps + tip', !!JOURNAL_GUIDE.intro && JOURNAL_GUIDE.steps.length >= 3 && !!JOURNAL_GUIDE.tip);
+  ok('ORDER_OF_PLAY drives the guide', ORDER_OF_PLAY.bookselling.length === 8 && ORDER_OF_PLAY.daysOff.length === 3 && typeof ORDER_OF_PLAY.closingEarly === 'string');
+});
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

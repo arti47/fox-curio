@@ -1,11 +1,11 @@
 // screens.js — top-level screen renderers + persistent resource header.
 // Phase 0: Home + Settings are live; Create/Day/Journal/Library are gated placeholders
 // (built in later phases per CLAUDE.md §7). Everything renders with zero console errors.
-import { el, $, clearNode, APP, d6, autoGrow } from './core.js';
+import { el, $, clearNode, APP, d6, d20, autoGrow } from './core.js';
 import { Store } from './store.js';
 import { Settings, applyTheme, nextTheme } from './settings.js';
 import { season, bookCap, holidayOn } from './rules.js';
-import { META, SEASONS, HOLIDAYS } from '../data.js';
+import { META, SEASONS, HOLIDAYS, ORDER_OF_PLAY, JOURNAL_GUIDE } from '../data.js';
 import { endDaySummary, nextCalendar, onYearRollover } from './calendar.js';
 import * as Engine from './engine.js';
 import { townByKey, restock, buy, ownedSummary, tradeBooksForCoins } from './town.js';
@@ -249,11 +249,13 @@ function renderSession(root, c) {
   }
 
   // Task + customers
-  root.append(el('div', { class: 'card' }, [
+  const taskCard = el('div', { class: 'card' }, [
     el('h2', { text: `Daily task (d20 → ${sess.taskRoll})` }),
     el('p', { text: sess.task.text }),
     sess.extraTaskCards ? el('p', { class: 'small muted', text: `Card modifier today: ${sess.extraTaskCards > 0 ? '+' : ''}${sess.extraTaskCards}` }) : null,
-  ]));
+  ]);
+  if (sess.task.roll) taskCard.append(taskRollWidget(c, sess.task)); // in-prompt roll (e.g. Bloom-20 merch)
+  root.append(taskCard);
 
   const target = Engine.targetCardCount();
   const flipsCard = el('div', { class: 'card' }, [el('h2', { text: `Customers (${sess.flips.length}/${target})` })]);
@@ -298,6 +300,39 @@ function renderSession(root, c) {
       ]),
     ]));
   }
+}
+
+// A generic roll+journal helper for tasks whose text embeds a die roll (task.roll).
+// The app rolls and shows the result; you read the prompt and journal what you decide.
+function taskRollWidget(c, task) {
+  const die = task.roll.die === 'd20' ? 'd20' : 'd6';
+  const wrap = el('div', { class: 'task-roll', 'aria-live': 'polite' }, [
+    el('p', { class: 'small', html: '<b>⚡ This task calls for a roll.</b>' }),
+    task.roll.note ? el('p', { class: 'small muted', text: task.roll.note }) : null,
+  ]);
+  const result = el('p', { class: 'roll-result', hidden: true });
+  let last = null;
+  const journalBtn = el('button', { class: 'btn btn--ghost btn--sm', text: '✎ Note in journal', disabled: true });
+  const rollBtn = el('button', {
+    class: 'btn btn--ghost btn--sm', text: `🎲 Roll ${die}`, onClick: () => {
+      last = die === 'd20' ? d20() : d6();
+      result.hidden = false;
+      result.textContent = `${die} → ${last} (${last % 2 === 0 ? 'even' : 'odd'}).`;
+      journalBtn.disabled = false;
+    },
+  });
+  journalBtn.addEventListener('click', () => {
+    Store.update((save) => {
+      const ch = save.characters[save.activeCharacterId];
+      ch.journal.push({
+        id: 'j' + Date.now(), year: c.calendar.year, seasonIndex: c.calendar.seasonIndex, day: c.calendar.day,
+        title: 'Daily task', body: `${task.text}\n\nRolled ${die} → ${last} (${last % 2 === 0 ? 'even' : 'odd'}).\n`, ts: Date.now(),
+      });
+    });
+    showToast('Added to your journal.');
+  });
+  wrap.append(el('div', { class: 'pill-row' }, [rollBtn, journalBtn]), result);
+  return wrap;
 }
 
 function labelForecast(f) { return { dead: 'Dead', snail: "Snail's pace", quiet: 'Quiet', steady: 'Steady', busy: 'Busy', extreme: 'Extremely busy' }[f]; }
@@ -688,12 +723,33 @@ export function renderSettings(root) {
   root.append(
     el('h1', { text: 'Settings & About' }),
     el('div', { class: 'card' }, [el('h2', { text: 'Appearance' }), themeRow]),
+    guideCard(),
     backup,
     el('div', { class: 'card' }, [
       el('h2', { text: 'About' }),
       el('p', { class: 'small muted', text: `Fox Curio's Floating Bookshop — a solo journalling game by Ella Lim (Lost Ways Club, 2023). This is a personal play-aid, v${APP.version}.` }),
     ]),
   );
+}
+
+// How to play & journal — a collapsed guide built from JOURNAL_GUIDE + ORDER_OF_PLAY.
+function guideCard() {
+  const details = (summary, items, ordered = true) => {
+    const list = el(ordered ? 'ol' : 'ul', { class: 'guide-list' }, items.map((t) => el('li', { text: t })));
+    return el('details', { class: 'accordion' }, [el('summary', {}, [el('span', { text: summary })]), el('div', { class: 'accordion__body' }, [list])]);
+  };
+  return el('div', { class: 'card' }, [
+    el('h2', { text: 'How to play & journal' }),
+    el('p', { text: JOURNAL_GUIDE.intro }),
+    el('ol', { class: 'guide-list' }, JOURNAL_GUIDE.steps.map((t) => el('li', { text: t }))),
+    el('p', { class: 'small muted', text: JOURNAL_GUIDE.tip }),
+    details('Bookselling — order of play', ORDER_OF_PLAY.bookselling),
+    details('A day off — order of play', ORDER_OF_PLAY.daysOff),
+    el('details', { class: 'accordion' }, [
+      el('summary', {}, [el('span', { text: 'Closing early' })]),
+      el('div', { class: 'accordion__body' }, [el('p', { class: 'small', text: ORDER_OF_PLAY.closingEarly })]),
+    ]),
+  ]);
 }
 
 function doExport() {

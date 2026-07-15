@@ -495,6 +495,25 @@ holiday snail's-pace open = 1 (p34, previously PDF-verified — source PDF no lo
 value unchanged). **Note:** the local source PDF/`fox_curios.md` are no longer present, so any
 future ruling that needs the book must have it re-supplied.
 
+### 9.2 Audit pass 2 (2026-07-15) — daily-task in-prompt rolls
+
+**Finding (closed):**
+- **R4 — In-prompt task rolls had no UI.** Rule: a few daily tasks embed a die roll the player
+  resolves and journals (T18). Target: `engine`/`screens.renderSession` + `data.js`. Audited all
+  **100** tasks (5×20): structured effects (repair/±cards/halve/closeEarly/bonusCards) are all
+  surfaced; the **only** task carrying an unhandled embedded roll is **Bloom-20** ("Design merch…
+  Even roll = a customer buys one"). Was: shown as plain text, no way to roll or act. Fix: added a
+  data-driven `roll` field on such tasks (`{ die, note }`) and a **generic roll+journal helper**
+  (`screens.taskRollWidget`) that appears only on flagged tasks — rolls the die, shows even/odd,
+  and seeds a journal entry; the player interprets the outcome (no auto-applied quantities, per the
+  journalling design §0). Regression: "exactly one task flagged (bloom-20)", "bloom-20 roll die+note",
+  "every even/odd-roll task is flagged". **Also** added a **How to play & journal** guide in Settings
+  (`JOURNAL_GUIDE` + `ORDER_OF_PLAY`, `screens.guideCard`).
+
+**Verified clean (task audit):** no other task text contains an unhandled "even/odd roll" or
+embedded quantity; the item-conditional tasks (incense/BugOff/ginger/candles/gear/lantern oil) are
+narrative `needs`-style prompts, not rolls.
+
 ---
 
 ## 10. Content & IP
@@ -511,6 +530,7 @@ public.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-07-15 | **Task in-prompt rolls + play/journal guide (audit §9.2, R4).** Audited all 100 daily tasks: only **Bloom-20** embeds a die roll with no UI. Added a data-driven `roll:{die,note}` field on it and a generic **roll+journal helper** (`screens.taskRollWidget`) shown only on flagged tasks — rolls d6, shows even/odd, seeds a journal entry; player interprets the outcome (no auto-applied quantities, per §0). Added a **How to play & journal** guide to Settings (`JOURNAL_GUIDE` in data.js + `ORDER_OF_PLAY`, `screens.guideCard`, collapsible order-of-play accordions). SW → v0.17.0. Harness +5. | `npm test` **117/117**; headless @390px: Settings guide (16 steps + 3 accordions), forced Bloom d20=20 → `.task-roll` widget, rolled d6→even, journal button enabled, entry written; zero overflow, zero console errors | fox-curio-v0.17.0 |
 | 2026-07-15 | **Fix: update/undo toast buttons unclickable.** Root cause: `.toast-wrap` is `pointer-events:none` (so passive toasts don't block the UI), which also disabled the interactive **Reload** (update-available) and **Undo** buttons inside it — clicks passed straight through. Fix: `.toast .btn { pointer-events: auto; }` re-enables just the buttons. CSS-only; SW → v0.16.0. | headless @390px: injected `updateToast`+`actionToast`, both buttons compute `pointer-events:auto`, Playwright real-click hit-test succeeds on Reload **and** Undo (previously would intercept); `npm test` **112/112**; zero console errors | fox-curio-v0.16.0 |
 | 2026-07-15 | **River: drop accordion counts.** Removed the per-category entry-count from the River-tab accordion summaries (`renderLibrary`) + its now-dead `.acc-count` CSS; summaries show just the category name. SW → v0.15.0. | `npm test` **112/112**; headless @390px: 11 accordions, 0 count spans, first summary = "Customers", zero console errors | fox-curio-v0.15.0 |
 | 2026-07-15 | **Wizard: cards lift + accent-label separation.** The `.wiz-card` borders were invisible in dark mode (fill == page bg). Now each card has a lighter fill (`color-mix(surface, text 7%)`), a stronger border (`color-mix(border, text 22%)`), and a soft shadow so it lifts off the page; the recessed dropdown (`--bg`) reads as the answer. The question label became a smaller UPPERCASE accent-coloured eyebrow (`.wiz-card > label`), visually distinct from its control (count badge kept non-caps/muted). Gap 14→18px. CSS-only; SW → v0.14.0. | `npm test` **112/112**; headless @390px both schemes: dark card fill srgb .22 vs body .13 (lifts), select bg == body (recessed), label = accent uppercase 12.5px; light border/shadow separate cleanly; screenshots confirm; zero overflow, zero console errors | fox-curio-v0.14.0 |
