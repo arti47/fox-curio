@@ -1,6 +1,6 @@
 // service-worker.js — network-first, caches the app shell + all data files.
 // Bump CACHE_VERSION on any shipped-file change (CLAUDE.md §8.6).
-const CACHE_VERSION = 'fox-curio-v0.15.0';
+const CACHE_VERSION = 'fox-curio-v0.16.0';
 
 const APP_SHELL = [
   './',

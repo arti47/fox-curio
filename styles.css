@@ -214,6 +214,9 @@ a { color: var(--accent); }
   background: var(--ink); color: var(--parchment); padding: 10px 16px; border-radius: 999px;
   font-size: 14px; box-shadow: 0 4px 16px var(--shadow); max-width: 90vw;
 }
+/* wrap is pointer-events:none so passive toasts don't block the UI; re-enable
+   interactive toast buttons (Reload / Undo) so they can be clicked. */
+.toast .btn { pointer-events: auto; }
 :root[data-theme='dark'] .toast, @media (prefers-color-scheme: dark) { }
 
 .field { margin-bottom: 12px; }
