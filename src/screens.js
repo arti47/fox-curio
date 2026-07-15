@@ -107,7 +107,7 @@ export function renderLibrary(root) {
       total += cat.entries.length;
       const body = el('div', { class: 'accordion__body' }, cat.entries.slice(0, 200).map((e) => compendiumEntryRow(cat.label, e)));
       const acc = el('details', { class: 'accordion', open: q ? true : false }, [ // collapsed by default; search auto-opens
-        el('summary', {}, [el('span', { text: cat.label }), el('span', { class: 'acc-count', text: String(cat.entries.length) })]),
+        el('summary', {}, [el('span', { text: cat.label })]),
         body,
       ]);
       groups.append(acc);
