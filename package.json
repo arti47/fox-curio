@@ -1,0 +1,13 @@
+{
+  "name": "fox-curio-floating-bookshop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Solo player companion app for Fox Curio's Floating Bookshop (personal play aid).",
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.47.0"
+  }
+}

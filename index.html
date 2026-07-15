@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#e9dcc3" />
+  <title>Fox Curio's Floating Bookshop</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#screen">Skip to content</a>
+
+  <header class="app-header" id="app-header">
+    <div class="app-header__bar">
+      <button class="icon-btn app-header__brand" id="brand-btn" aria-label="Home">
+        <span class="app-header__mark" aria-hidden="true">🦊</span>
+        <span class="app-header__title">Fox Curio's</span>
+      </button>
+      <button class="icon-btn" id="theme-toggle" aria-label="Toggle light or dark theme">
+        <span class="theme-toggle__icon" aria-hidden="true">◐</span>
+      </button>
+    </div>
+    <!-- Persistent resource header (shown in-play once a character exists) -->
+    <div class="resource-strip" id="resource-strip" hidden aria-live="polite"></div>
+  </header>
+
+  <main id="screen" class="screen" tabindex="-1"></main>
+
+  <nav class="bottom-nav" id="bottom-nav" aria-label="Primary"></nav>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

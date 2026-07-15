@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Fox Curio's Floating Bookshop">
+  <rect width="512" height="512" rx="96" fill="#e9dcc3"/>
+  <!-- river -->
+  <path d="M0 372c64-26 128-26 192 0s128 26 192 0 96-26 128-13v153H0z" fill="#6a92a6" opacity="0.55"/>
+  <path d="M0 404c64-24 128-24 192 0s128 24 192 0 96-24 128-12v120H0z" fill="#6a92a6" opacity="0.8"/>
+  <!-- raft -->
+  <rect x="150" y="330" width="212" height="26" rx="8" fill="#8a6a43"/>
+  <!-- book -->
+  <g transform="translate(196 150)">
+    <rect x="0" y="0" width="120" height="150" rx="10" fill="#fbf4e6" stroke="#c0492f" stroke-width="10"/>
+    <line x1="60" y1="12" x2="60" y2="138" stroke="#d8c7a6" stroke-width="6"/>
+    <line x1="18" y1="46" x2="52" y2="46" stroke="#6f8f5e" stroke-width="7" stroke-linecap="round"/>
+    <line x1="18" y1="72" x2="52" y2="72" stroke="#6f8f5e" stroke-width="7" stroke-linecap="round"/>
+    <line x1="68" y1="46" x2="102" y2="46" stroke="#e0a531" stroke-width="7" stroke-linecap="round"/>
+    <line x1="68" y1="72" x2="102" y2="72" stroke="#e0a531" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  <!-- fox ears/nose mark -->
+  <g transform="translate(256 96)" fill="#c0492f">
+    <path d="M-40 0 L-14 40 L-40 40 Z"/>
+    <path d="M40 0 L14 40 L40 40 Z"/>
+  </g>
+</svg>

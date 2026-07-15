@@ -1,0 +1,14 @@
+{
+  "name": "Fox Curio's Floating Bookshop",
+  "short_name": "Fox Curio's",
+  "description": "A solo journalling companion for Fox Curio's Floating Bookshop: A Year Upon a River.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e9dcc3",
+  "theme_color": "#e9dcc3",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
