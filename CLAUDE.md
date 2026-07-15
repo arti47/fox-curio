@@ -373,6 +373,8 @@ A5/A6). **An unticked box = data not extracted. Never build UI against an untick
   spanner, gear oil, washer, pipes, BugOff, incense, lantern oil, candles, extra shelves,
   record player) — id · price · town(s) · effect
 - [x] T29 Item Reference (Appendix V): which town(s) sell each ingredient/tool category
+- [x] T30 Word oracle (d100 inspiration words) → `data.js` `WORD_ORACLE`; rolled 3-at-a-time
+  by the Day-screen inspiration roller (`screens.inspirationBox`)
 
 ---
 
@@ -530,6 +532,7 @@ public.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-07-15 | **Word-oracle inspiration roller (T30).** Added the d100 inspiration-word table (`WORD_ORACLE`, user-supplied) + `core.d100`. On the selling session (where task+customers render) a new **✨ Inspiration** card rolls **3 words**, with **Reroll**, an inline **Today's journal** textarea (autogrow), tap-a-word-**inserts-at-cursor**, **Insert all**, and **Save entry** (writes the day's journal entry). The draft (words+text) is module-scoped and **persists across the session's re-renders**, keyed to the day; cleared on Finish day. SW → v0.18.0. Harness +4. | `npm test` **121/121**; headless @390px: forced Bloom session (target 1), Inspiration card + 3 chips, insert-at-cursor ("The Change drifted by."), reroll swaps words & keeps text, text survives a customer-flip re-render, Save wrote entry (0→1) & cleared box; zero overflow, zero console errors | fox-curio-v0.18.0 |
 | 2026-07-15 | **Task in-prompt rolls + play/journal guide (audit §9.2, R4).** Audited all 100 daily tasks: only **Bloom-20** embeds a die roll with no UI. Added a data-driven `roll:{die,note}` field on it and a generic **roll+journal helper** (`screens.taskRollWidget`) shown only on flagged tasks — rolls d6, shows even/odd, seeds a journal entry; player interprets the outcome (no auto-applied quantities, per §0). Added a **How to play & journal** guide to Settings (`JOURNAL_GUIDE` in data.js + `ORDER_OF_PLAY`, `screens.guideCard`, collapsible order-of-play accordions). SW → v0.17.0. Harness +5. | `npm test` **117/117**; headless @390px: Settings guide (16 steps + 3 accordions), forced Bloom d20=20 → `.task-roll` widget, rolled d6→even, journal button enabled, entry written; zero overflow, zero console errors | fox-curio-v0.17.0 |
 | 2026-07-15 | **Fix: update/undo toast buttons unclickable.** Root cause: `.toast-wrap` is `pointer-events:none` (so passive toasts don't block the UI), which also disabled the interactive **Reload** (update-available) and **Undo** buttons inside it — clicks passed straight through. Fix: `.toast .btn { pointer-events: auto; }` re-enables just the buttons. CSS-only; SW → v0.16.0. | headless @390px: injected `updateToast`+`actionToast`, both buttons compute `pointer-events:auto`, Playwright real-click hit-test succeeds on Reload **and** Undo (previously would intercept); `npm test` **112/112**; zero console errors | fox-curio-v0.16.0 |
 | 2026-07-15 | **River: drop accordion counts.** Removed the per-category entry-count from the River-tab accordion summaries (`renderLibrary`) + its now-dead `.acc-count` CSS; summaries show just the category name. SW → v0.15.0. | `npm test` **112/112**; headless @390px: 11 accordions, 0 count spans, first summary = "Customers", zero console errors | fox-curio-v0.15.0 |

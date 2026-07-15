@@ -1,7 +1,7 @@
 // tests/run.js — Phase 0 regression harness (data + rules invariants).
 // Pure Node ESM; no browser needed. Browser boot/wiring smoke (Playwright) is added in the
 // hardening phase (CLAUDE.md §8.5). Run: `npm test`.
-import { META, SEASONS, CUSTOMERS, BOOK_GENRES, HOLIDAYS, CREATION, SHOP_SETUP, ORDER_OF_PLAY, JOURNAL_GUIDE } from '../data.js';
+import { META, SEASONS, CUSTOMERS, BOOK_GENRES, HOLIDAYS, CREATION, SHOP_SETUP, ORDER_OF_PLAY, JOURNAL_GUIDE, WORD_ORACLE } from '../data.js';
 import { TOWNS, POST_OFFICES, DISTANCES, RECIPES, FISH, TRADES, ITEMS, REPAIR_TRADES } from '../data-compendium.js';
 import {
   customerByCard, weatherByRank, taskByRoll, genreByRoll, extraCustomersByRoll,
@@ -272,6 +272,13 @@ group('Task in-prompt rolls + play guide', () => {
   // Play/journal guide is present and shaped for rendering.
   ok('JOURNAL_GUIDE has intro + steps + tip', !!JOURNAL_GUIDE.intro && JOURNAL_GUIDE.steps.length >= 3 && !!JOURNAL_GUIDE.tip);
   ok('ORDER_OF_PLAY drives the guide', ORDER_OF_PLAY.bookselling.length === 8 && ORDER_OF_PLAY.daysOff.length === 3 && typeof ORDER_OF_PLAY.closingEarly === 'string');
+});
+
+group('Word oracle (T30)', () => {
+  ok('100 words (d100)', WORD_ORACLE.length === 100);
+  ok('all non-empty unique strings', new Set(WORD_ORACLE).size === 100 && WORD_ORACLE.every((w) => typeof w === 'string' && w.length));
+  ok('endpoints match table (1=Anchor, 100=Wood)', WORD_ORACLE[0] === 'Anchor' && WORD_ORACLE[99] === 'Wood');
+  ok('spot-checks (50=Gossip, 51=Greet, 60=Lantern)', WORD_ORACLE[49] === 'Gossip' && WORD_ORACLE[50] === 'Greet' && WORD_ORACLE[59] === 'Lantern');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -1,11 +1,11 @@
 // screens.js — top-level screen renderers + persistent resource header.
 // Phase 0: Home + Settings are live; Create/Day/Journal/Library are gated placeholders
 // (built in later phases per CLAUDE.md §7). Everything renders with zero console errors.
-import { el, $, clearNode, APP, d6, d20, autoGrow } from './core.js';
+import { el, $, clearNode, APP, d6, d20, d100, autoGrow } from './core.js';
 import { Store } from './store.js';
 import { Settings, applyTheme, nextTheme } from './settings.js';
 import { season, bookCap, holidayOn } from './rules.js';
-import { META, SEASONS, HOLIDAYS, ORDER_OF_PLAY, JOURNAL_GUIDE } from '../data.js';
+import { META, SEASONS, HOLIDAYS, ORDER_OF_PLAY, JOURNAL_GUIDE, WORD_ORACLE } from '../data.js';
 import { endDaySummary, nextCalendar, onYearRollover } from './calendar.js';
 import * as Engine from './engine.js';
 import { townByKey, restock, buy, ownedSummary, tradeBooksForCoins } from './town.js';
@@ -262,6 +262,8 @@ function renderSession(root, c) {
   for (const f of sess.flips) flipsCard.append(flipRow(f));
   root.append(flipsCard);
 
+  root.append(inspirationBox(c, sess)); // 3-word oracle + inline journal box
+
   if (sess.phase === 'customers') {
     if (sess.flips.length < target) {
       root.append(el('button', { class: 'btn btn--block', text: target === 0 ? 'No customers today — end of day' : 'Flip next customer', onClick: () => { if (target > 0) Engine.flipCustomer(); go('day'); } }));
@@ -333,6 +335,61 @@ function taskRollWidget(c, task) {
   });
   wrap.append(el('div', { class: 'pill-row' }, [rollBtn, journalBtn]), result);
   return wrap;
+}
+
+// 3-word inspiration oracle (T30) + an inline "today's journal" box, shown during the
+// selling session. The draft persists across the session's re-renders (module-scoped),
+// keyed to the current day; cleared when the day is finished.
+let inspDraft = { key: null, words: [], text: '' };
+const rollWords = () => [d100(), d100(), d100()].map((n) => WORD_ORACLE[n - 1]);
+function inspStateFor(sess) {
+  const key = `${sess.si}-${sess.day}`;
+  if (inspDraft.key !== key) inspDraft = { key, words: [], text: '' };
+  if (!inspDraft.words.length) inspDraft.words = rollWords();
+  return inspDraft;
+}
+function clearInspDraft() { inspDraft = { key: null, words: [], text: '' }; }
+
+function inspirationBox(c, sess) {
+  const st = inspStateFor(sess);
+  const ta = el('textarea', { class: 'tall-md', placeholder: "Write today's journal — tap a word above to drop it in." });
+  ta.value = st.text;
+  autoGrow(ta);
+  ta.addEventListener('input', () => { st.text = ta.value; });
+  const insertWord = (w) => {
+    const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? ta.value.length;
+    const before = ta.value.slice(0, s), after = ta.value.slice(e);
+    const chunk = (before && !/\s$/.test(before) ? ' ' : '') + w;
+    ta.value = before + chunk + after;
+    st.text = ta.value;
+    const caret = (before + chunk).length;
+    ta.focus(); ta.setSelectionRange(caret, caret);
+    ta.dispatchEvent(new Event('input')); // re-grow
+  };
+  const words = el('div', { class: 'pill-row' }, st.words.map((w) => el('button', { class: 'btn btn--ghost btn--sm', text: w, title: 'Insert into journal', onClick: () => insertWord(w) })));
+  const actions = el('div', { class: 'pill-row', style: 'margin-top:10px' }, [
+    el('button', { class: 'btn btn--ghost btn--sm', text: '🎲 Reroll', onClick: () => { st.words = rollWords(); go('day'); } }),
+    el('button', { class: 'btn btn--ghost btn--sm', text: 'Insert all', onClick: () => st.words.forEach(insertWord) }),
+    el('button', {
+      class: 'btn btn--sm', text: 'Save entry', onClick: () => {
+        const body = st.text.trim();
+        if (!body) { showToast('Write something first.'); return; }
+        Store.update((save) => {
+          const ch = save.characters[save.activeCharacterId];
+          ch.journal.push({ id: 'j' + Date.now(), year: c.calendar.year, seasonIndex: c.calendar.seasonIndex, day: c.calendar.day, title: '', body, ts: Date.now() });
+        });
+        st.text = '';
+        showToast('Entry saved.'); go('day');
+      },
+    }),
+  ]);
+  return el('div', { class: 'card' }, [
+    el('h2', { text: '✨ Inspiration' }),
+    el('p', { class: 'small muted', text: 'Three words to spark the day. Tap one to drop it into your journal, or reroll.' }),
+    words,
+    el('div', { class: 'field', style: 'margin-top:10px' }, [el('label', { class: 'small muted', text: "Today's journal" }), ta]),
+    actions,
+  ]);
 }
 
 function labelForecast(f) { return { dead: 'Dead', snail: "Snail's pace", quiet: 'Quiet', steady: 'Steady', busy: 'Busy', extreme: 'Extremely busy' }[f]; }
@@ -621,6 +678,7 @@ function doTravel(c, toKey, days) {
 function finishDay(sess) {
   const from = dateLabel(Store.activeCharacter().calendar);
   Engine.finishDay();
+  clearInspDraft(); // fresh inspiration next day
   actionToast('Day recorded.', 'Undo', () => { Store.undo(); go('day'); });
   go('day');
 }

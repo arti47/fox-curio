@@ -636,6 +636,23 @@ export const JOURNAL_GUIDE = {
 };
 
 // ---------------------------------------------------------------------------
+// WORD_ORACLE (T30) — d100 inspiration words to spark a journal entry.
+// Rolled three at a time on the Day screen; user-supplied table (source book).
+// ---------------------------------------------------------------------------
+export const WORD_ORACLE = [
+  'Anchor', 'Apologetic', 'Bake', 'Bank', 'Bargain', 'Bark', 'Berry', 'Blossom', 'Boat', 'Book',
+  'Bothersome', 'Breeze', 'Bright', 'Busy', 'Change', 'Chilly', 'Clumsy', 'Coin', 'Cold', 'Comfort',
+  'Continue', 'Cook', 'Cover', 'Cozy', 'Craft', 'Current', 'Damp', 'Dance', 'Dark', 'Decrease',
+  'Deliver', 'Dirt', 'Drink', 'Drift', 'Dust', 'Eager', 'Extra', 'Feast', 'Feathers', 'Fire',
+  'Fish', 'Float', 'Flood', 'Flour', 'Flower', 'Frost', 'Fur', 'Gather', 'Gift', 'Gossip',
+  'Greet', 'Harvest', 'Heavy', 'Hesitant', 'Holiday', 'Honey', 'Ice', 'Increase', 'Ink', 'Lantern',
+  'Leaf', 'Leak', 'Lily', 'Loud', 'Magic', 'Mess', 'Moon', 'Mud', 'Mundane', 'Mysterious',
+  'Page', 'Paws', 'Peaceful', 'Plant', 'Quiet', 'Raft', 'Rain', 'Read', 'Recipe', 'Reed',
+  'Rest', 'River', 'Ruined', 'Scales', 'Shelf', 'Sky', 'Snow', 'Spill', 'Start', 'Stop',
+  'Story', 'Strange', 'Sun', 'Sweet', 'Tea', 'Tidy', 'Warm', 'Wet', 'Wharf', 'Wood',
+];
+
+// ---------------------------------------------------------------------------
 // CHARACTER CREATION option lists — pp18-21.
 // ---------------------------------------------------------------------------
 export const CREATION = {

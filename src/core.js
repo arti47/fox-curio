@@ -44,6 +44,7 @@ export const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 export const rollDie = (sides) => 1 + Math.floor(Math.random() * sides);
 export const d6 = () => rollDie(6);
 export const d20 = () => rollDie(20);
+export const d100 = () => rollDie(100);
 
 // ---- cards (standard 52, no jokers) ----
 export const SUITS = ['hearts', 'spades', 'clubs', 'diamonds'];
