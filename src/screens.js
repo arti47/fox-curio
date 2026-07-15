@@ -69,8 +69,32 @@ export function renderHome(root) {
   }
 
   root.append(hero, cta);
+  if (c) root.append(inventoryCard(c));
 }
 function stat(n, label) { return el('div', { class: 'stat' }, [el('b', { text: String(n) }), el('span', { text: label })]); }
+
+// Inventory — everything the bookseller owns: gear/upgrades, supplies, caught fish,
+// signature items. Surfaces `supplies` and `caught`, which were tracked but never shown.
+function inventoryCard(c) {
+  const row = (label, value) => el('div', { class: 'row' }, [el('div', { class: 'row__text' }, [
+    el('b', { text: label }), el('span', { text: value || 'none yet' }),
+  ])]);
+  const supplies = (c.supplies || []).filter((x) => x.qty > 0)
+    .map((x) => `${x.name}${x.qty > 1 ? ` ×${x.qty}` : ''}`).join(' · ');
+  const caughtCounts = {};
+  for (const f of (c.caught || [])) caughtCounts[f.name] = (caughtCounts[f.name] || 0) + 1;
+  const caught = Object.entries(caughtCounts).map(([n, q]) => `${n}${q > 1 ? ` ×${q}` : ''}`).join(' · ');
+  const items = (c.identity.items || []).join(' · ');
+  return el('div', { class: 'card' }, [
+    el('h2', { text: 'Inventory' }),
+    el('p', { class: 'small muted', text: `${c.resources.coins} coins · ${c.resources.books}/${bookCap(c)} books` }),
+    row('Gear & upgrades', ownedSummary(c).join(' · ')),
+    row('Supplies', supplies),
+    row('Caught fish', caught),
+    row('Signature items', items),
+    el('p', { class: 'small muted', style: 'margin-top:8px', text: 'Buy supplies and gear at the town where you are moored (Visit town from the day).' }),
+  ]);
+}
 
 // ---- Gated placeholders for later phases ----
 function placeholder(root, { icon, title, note, phase }) {
