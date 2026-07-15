@@ -62,7 +62,7 @@ const optLabel = (o) => (typeof o === 'string' ? o : o.label);
 
 // A single-choice <select>. Plain selects re-gate Next without a full re-render (no scroll jump).
 function selectField(title, options, key, hint) {
-  const box = el('div', { class: 'field' }, [el('label', { text: title })]);
+  const box = el('div', { class: 'field wiz-card' }, [el('label', { text: title })]);
   const opts = [el('option', { value: '', text: '— choose —', selected: !draft[key] })];
   for (const o of options) opts.push(el('option', { value: optVal(o), text: optLabel(o), selected: optVal(o) === draft[key] }));
   const sel = el('select', { 'aria-label': title }, opts);
@@ -74,7 +74,7 @@ function selectField(title, options, key, hint) {
 
 // A single-choice <select> with <optgroup>s. groups: [{ label, options:[{value,label}] }].
 function selectGroupedField(title, groups, key, hint) {
-  const box = el('div', { class: 'field' }, [el('label', { text: title })]);
+  const box = el('div', { class: 'field wiz-card' }, [el('label', { text: title })]);
   const sel = el('select', { 'aria-label': title }, [el('option', { value: '', text: '— choose —', selected: !draft[key] })]);
   for (const g of groups) {
     const og = el('optgroup', { label: g.label });
@@ -89,7 +89,7 @@ function selectGroupedField(title, groups, key, hint) {
 
 // Suggestions-or-custom: a dropdown of suggestions plus a "Custom…" option revealing a text box.
 function suggestField(title, key, suggestions) {
-  const box = el('div', { class: 'field' }, [el('label', { text: title })]);
+  const box = el('div', { class: 'field wiz-card' }, [el('label', { text: title })]);
   const isCustom = !!draft[key] && !suggestions.includes(draft[key]);
   const opts = [el('option', { value: '', text: '— choose —', selected: !draft[key] })];
   for (const s of suggestions) opts.push(el('option', { value: s, text: s, selected: draft[key] === s }));
@@ -111,7 +111,7 @@ function suggestField(title, key, suggestions) {
 // Pick-exactly-N via N dropdowns; each slot excludes values chosen in the other slots.
 function multiSelectField(title, options, key, count, hint) {
   const chosen = draft[key];
-  const box = el('div', { class: 'field' }, [
+  const box = el('div', { class: 'field wiz-card' }, [
     el('label', {}, [`${title} `, el('span', { class: `count ${chosen.length === count ? 'ok' : ''}`, text: `(${chosen.length}/${count})` })]),
   ]);
   for (let i = 0; i < count; i++) {
@@ -161,7 +161,7 @@ function pageShop(root) {
   );
   if (draft._inherited) root.append(el('div', { class: 'hint', text: '🕯 Three leftover marks carried over from last year\'s shop — change them if you wish.' }));
   root.append(multiSelectField('What did the previous owner leave? Choose three', SHOP_SETUP.leftovers, 'leftovers', 3));
-  const fp = el('div', { class: 'field' }, [el('label', { text: 'Floorplan notes (optional)' })]);
+  const fp = el('div', { class: 'field wiz-card' }, [el('label', { text: 'Floorplan notes (optional)' })]);
   const ta = el('textarea', { class: 'tall-md', placeholder: 'Sketch the layout in words — where the counter, couch and shelves sit…' });
   ta.value = draft.floorplan;
   ta.addEventListener('input', () => { draft.floorplan = ta.value; });
