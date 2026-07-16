@@ -23,18 +23,19 @@ let current = 'home';
 
 export function go(route) {
   if (!ROUTES[route]) route = 'home';
+  const changed = route !== current; // same-route re-render (a button action) keeps scroll
   current = route;
   if (location.hash !== `#${route}`) history.replaceState(null, '', `#${route}`);
-  render();
+  render(changed);
 }
 
-function render() {
+function render(scrollTop = true) {
   const screen = $('#screen');
   clearNode(screen);
   renderResourceStrip();
   ROUTES[current].render(screen);
   screen.focus({ preventScroll: true });
-  window.scrollTo(0, 0);
+  if (scrollTop) window.scrollTo(0, 0); // only on tab change, not on in-place updates
   updateNav();
 }
 
