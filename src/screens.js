@@ -13,6 +13,7 @@ import { runFishing } from './fishing.js';
 import { canTravel, travelDays, isUpstream, arrivalPrompt } from './travel.js';
 import { activeRepairs, hasRepairs, selfFix, hireTrade, tickRepairs, ownsItem } from './repairs.js';
 import { availableKinds, letterRecipients, sendLetter, pendingMail, tickMail, KIND_LABEL } from './mail.js';
+import { listProfiles, createProfile, updateProfile, deleteProfile, changeHeart, favoursAvailable, useFavour } from './profiles.js';
 import { RECIPES } from '../data-compendium.js';
 import { groupedHits } from './compendium.js';
 import { TOWNS, TRADES } from '../data-compendium.js';
@@ -69,9 +70,129 @@ export function renderHome(root) {
   }
 
   root.append(hero, cta);
-  if (c) root.append(inventoryCard(c));
+  if (c) root.append(friendsCard(c), inventoryCard(c));
 }
 function stat(n, label) { return el('div', { class: 'stat' }, [el('b', { text: String(n) }), el('span', { text: label })]); }
+
+// ---- Friends / customer profiles (book: named profiles, hearts, favours) ----
+function heartToast(prev, now) {
+  if (now === prev) return;
+  if (now > prev) {
+    if (now === 3 || now === 6) showToast(`${now} hearts — they grant you a favour!`);
+    else if (now === 2) showToast('2 hearts — a mailed letter now returns a gift.');
+  } else showToast(`Heart removed — now ${now}.`);
+}
+function friendsCard(c) {
+  const profiles = listProfiles(c);
+  const card = el('div', { class: 'card' }, [
+    el('h2', { text: 'Friends' }),
+    el('p', { class: 'small muted', text: 'Customers you have chosen to record. Fill a heart when they share something meaningful (a story, secret, fear) — not casual chat. 3 & 6 hearts grant a favour; 2+ lets a letter return a gift.' }),
+  ]);
+  if (!profiles.length) card.append(el('p', { class: 'muted small', text: 'No friends yet — record one from a customer during a selling day, or add one here.' }));
+  for (const p of profiles) card.append(friendRow(c, p));
+  card.append(el('button', { class: 'btn', style: 'margin-top:10px', text: '＋ New profile', onClick: () => profileEditor(null, { home: true }) }));
+  return card;
+}
+function friendRow(c, p) {
+  const meta = [p.hometown, p.occupation].filter(Boolean).join(' · ');
+  const fav = favoursAvailable(p);
+  const addBtn = el('button', { class: 'btn btn--ghost btn--sm', text: `♥ ${p.hearts}/6`, title: 'Add a heart', onClick: () => { const r = changeHeart(p.id, +1); heartToast(r.prev, r.now); go('home'); } });
+  addBtn.disabled = p.hearts >= 6;
+  const remBtn = el('button', { class: 'btn btn--ghost btn--sm', text: '−', 'aria-label': 'Remove a heart', onClick: () => { const r = changeHeart(p.id, -1); heartToast(r.prev, r.now); go('home'); } });
+  remBtn.disabled = p.hearts <= 0;
+  const rows = [el('div', { class: 'row' }, [
+    el('div', { class: 'row__text' }, [
+      el('b', { text: p.name }),
+      el('span', { text: meta || '—' }),
+      p.observations ? el('span', { class: 'small muted', text: p.observations }) : '',
+    ]),
+    el('div', { class: 'pill-row' }, [addBtn, remBtn]),
+  ])];
+  const actions = el('div', { class: 'pill-row', style: 'margin-top:6px' }, [
+    el('button', { class: 'btn btn--ghost btn--sm', text: 'Edit', onClick: () => profileEditor(p, { home: true }) }),
+    el('button', {
+      class: 'btn btn--ghost btn--sm', text: 'Delete', onClick: async () => {
+        if (await confirmModal(`Delete ${p.name}'s profile?`, { title: 'Delete profile', okLabel: 'Delete', danger: true })) { deleteProfile(p.id); go('home'); }
+      },
+    }),
+  ]);
+  if (fav > 0) actions.append(
+    el('span', { class: 'pill', text: `${fav} favour${fav === 1 ? '' : 's'} available` }),
+    el('button', {
+      class: 'btn btn--ghost btn--sm', text: 'Use favour', onClick: () => {
+        if (!useFavour(p.id)) return;
+        Store.update((s) => { const ch = s.characters[s.activeCharacterId]; ch.journal.push({ id: 'j' + Date.now(), year: c.calendar.year, seasonIndex: c.calendar.seasonIndex, day: c.calendar.day, title: 'Favour', body: `Called in ${p.name}'s favour to waive a cost.\n`, ts: Date.now() }); });
+        showToast('Favour called in — waive the cost.'); go('home');
+      },
+    }),
+  );
+  rows.push(actions);
+  return el('div', { class: 'friend', style: 'padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px' }, rows);
+}
+// New/edit a customer profile with the book's template fields.
+function profileEditor(existing, opts = {}) {
+  const src = existing || {};
+  const mkField = (label, key, ta = false) => {
+    const input = ta ? el('textarea', { class: 'tall-md' }) : el('input', { type: 'text' });
+    input.value = src[key] || (!existing && key === 'observations' && opts.prefillObs ? opts.prefillObs : '');
+    input.dataset.pkey = key;
+    if (ta) autoGrow(input);
+    return el('div', { class: 'field' }, [el('label', { class: 'small muted', text: label }), input]);
+  };
+  const form = el('div', {}, [
+    mkField('Name', 'name'), mkField('Age', 'age'), mkField('Hometown', 'hometown'),
+    mkField('Occupation', 'occupation'), mkField('Observations', 'observations', true),
+    mkField('Drawing / description', 'description', true),
+  ]);
+  const read = () => { const o = {}; form.querySelectorAll('[data-pkey]').forEach((n) => { o[n.dataset.pkey] = n.value.trim(); }); return o; };
+  modal({
+    title: existing ? 'Edit profile' : 'New customer profile', content: form,
+    actions: [
+      { label: 'Cancel', variant: 'ghost' },
+      {
+        label: existing ? 'Save' : 'Create', onClick: () => {
+          const o = read();
+          if (!o.name) { showToast('Give them a name.'); return true; } // keep modal open
+          if (existing) updateProfile(existing.id, o);
+          else { createProfile({ ...o, hearts: opts.initialHearts || 0 }); if (opts.initialHearts) heartToast(0, opts.initialHearts); }
+          go(opts.home ? 'home' : 'day');
+        },
+      },
+    ],
+  });
+}
+// From a customer flip: add a heart to an existing friend, or record a new one.
+function befriendFromFlip(f) {
+  const c = Store.activeCharacter();
+  const profiles = listProfiles(c);
+  const content = el('div', {}, [
+    el('p', { class: 'small muted', text: 'Add a heart to the friend this customer represents, or record a new one — only when they share something meaningful.' }),
+  ]);
+  let ref;
+  if (profiles.length) {
+    const list = el('div', {});
+    for (const p of profiles) {
+      list.append(el('div', { class: 'row' }, [
+        el('div', { class: 'row__text' }, [el('b', { text: p.name }), el('span', { text: `♥ ${p.hearts}/6${p.hometown ? ' · ' + p.hometown : ''}` })]),
+        el('button', {
+          class: 'btn btn--ghost btn--sm', text: '＋♥', title: 'Add a heart', onClick: () => {
+            const r = changeHeart(p.id, +1); heartToast(r.prev, r.now); ref.close(); go('day');
+          },
+        }),
+      ]));
+    }
+    content.append(list);
+  } else {
+    content.append(el('p', { class: 'muted small', text: 'No friends recorded yet.' }));
+  }
+  ref = modal({
+    title: 'Add to a friend', content,
+    actions: [
+      { label: 'New friend', onClick: () => profileEditor(null, { initialHearts: 1, prefillObs: `Looking for ${f.genre}. ${f.customer.text}` }) },
+      { label: 'Close', variant: 'ghost' },
+    ],
+  });
+}
 
 // Inventory — everything the bookseller owns: gear/upgrades, supplies, caught fish,
 // signature items. Surfaces `supplies` and `caught`, which were tracked but never shown.
@@ -418,22 +539,12 @@ function inspirationBox(c, sess) {
 
 function labelForecast(f) { return { dead: 'Dead', snail: "Snail's pace", quiet: 'Quiet', steady: 'Steady', busy: 'Busy', extreme: 'Extremely busy' }[f]; }
 function flipRow(f) {
-  const c = Store.activeCharacter();
-  const key = `${f.card.suit}-${f.card.rank}`;
-  const hearts = (c.hearts && c.hearts[key]) || 0;
   const right = el('div', { class: 'pill-row' });
   if (f.customer.deepen) {
-    const addBtn = el('button', {
-      class: 'btn btn--ghost btn--sm', text: `♥ ${hearts}/6`, title: 'They shared something — fill a heart',
-      onClick: () => changeHeart(key, +1, f.customer),
-    });
-    addBtn.disabled = hearts >= 6;
-    const remBtn = el('button', {
-      class: 'btn btn--ghost btn--sm', text: '−', 'aria-label': 'Remove a heart', title: 'Remove a heart',
-      onClick: () => changeHeart(key, -1),
-    });
-    remBtn.disabled = hearts <= 0;
-    right.append(addBtn, remBtn);
+    right.append(el('button', {
+      class: 'btn btn--ghost btn--sm', text: '＋ Friend', title: 'Record a friend / add a heart',
+      onClick: () => befriendFromFlip(f),
+    }));
   }
   return el('div', { class: 'row' }, [
     el('div', { class: 'row__text' }, [
@@ -443,24 +554,6 @@ function flipRow(f) {
     ]),
     right,
   ]);
-}
-function changeHeart(key, delta, customer) {
-  let now = 0, prev = 0;
-  Store.update((s) => {
-    const ch = s.characters[s.activeCharacterId];
-    ch.hearts = ch.hearts || {};
-    prev = ch.hearts[key] || 0;
-    now = Math.max(0, Math.min(6, prev + delta));
-    ch.hearts[key] = now;
-  });
-  if (now === prev) return; // clamped at 0 or 6, nothing changed
-  if (delta > 0) {
-    if (now === 3 || now === 6) showToast(`${now} hearts — they grant you a favour!`);
-    else if (now === 2) showToast('2 hearts — a mailed letter now returns a gift.');
-  } else {
-    showToast(`Heart removed — now ${now}.`);
-  }
-  go('day');
 }
 
 // ---- Town (Phase 4) ----

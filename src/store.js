@@ -40,7 +40,8 @@ function normalizeCharacter(c, id) {
     },
     resources: { coins: 100, books: 500, ...(c.resources || {}) },
     weatherEvent: c.weatherEvent || { season: null, count: 0 },
-    hearts: c.hearts || {},
+    hearts: c.hearts || {},              // deprecated suit-rank map (old saves); superseded by profiles
+    profiles: c.profiles || [],          // player-created customer profiles + friendship hearts/favours
     calendar: { year: 1, seasonIndex: 0, day: 1, weekName: 'Thaw', ...(c.calendar || {}) },
     supplies: c.supplies || [],
     caught: c.caught || [],

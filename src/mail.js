@@ -6,7 +6,7 @@
 import { pick } from './core.js';
 import { Store } from './store.js';
 import { POST_OFFICES, TOWNS } from '../data-compendium.js';
-import { seasonKey, customerByCard } from './rules.js';
+import { seasonKey } from './rules.js';
 
 export const KIND_LABEL = { snail: 'Snail mail', owl: 'Owl post', express: 'Express' };
 
@@ -29,14 +29,10 @@ export function availableKinds(character) {
   return out;
 }
 
-// Customers you can write to (any with a filled heart), labelled.
+// Friends you can write to — any customer profile with a filled heart. recipientKey = profile id.
 export function letterRecipients(character) {
-  const hearts = character.hearts || {};
-  return Object.entries(hearts).filter(([, n]) => n > 0).map(([key, n]) => {
-    const [suit, rank] = key.split('-');
-    const cust = customerByCard(suit, rank);
-    return { key, hearts: n, label: cust ? cust.text : key };
-  });
+  return (character.profiles || []).filter((p) => (p.hearts || 0) > 0)
+    .map((p) => ({ key: p.id, hearts: p.hearts, label: p.name || 'A friend' }));
 }
 
 // Send a letter. Returns {ok,msg}.
@@ -70,8 +66,9 @@ export function tickMail(ch, days = 1) {
       if (m.countdown <= 0) continue;
       m.countdown -= 1;
       if (m.countdown > 0) continue;
-      // reply arrives now
-      const heartCount = (ch.hearts && ch.hearts[m.recipientKey]) || 0;
+      // reply arrives now — gift if 2+ hearts with the recipient profile
+      const profile = (ch.profiles || []).find((p) => p.id === m.recipientKey);
+      const heartCount = profile ? (profile.hearts || 0) : 0;
       if (heartCount >= 2) {
         const town = townByKey(ch.shop.mooredTown);
         const items = town && town.shops ? town.shops.flatMap((sh) => sh.items) : [];

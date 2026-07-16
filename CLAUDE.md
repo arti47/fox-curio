@@ -95,10 +95,14 @@ searchable compendium. Phone-first; light + dark following system with an in-app
   to 500 and the new stock arrives **next day** by trade boat. If books hit 0 in Brisk, the
   shop must close until Bloom. *(Record player, 500 coins at Port Imes: +1 customer card
   every day, single purchase.)*
-- **Hearts** — per **customer profile**, 0→6. Filled when a customer shares important info.
-  **Favour at 3 and at 6.** At **2+ hearts**, a mailed letter returns a gift.
-  *(Which specific customers are trackable profiles vs. one-off flips is a UI ruling — see
-  §Ambiguities A2.)*
+- **Hearts** — per **player-created customer profile**, 0→6. A profile is a *named* character
+  you choose to record (Name/Age/Hometown/Occupation/Observations/description); a heart is
+  filled when they share something **meaningful** (a story, secret, doubt, fear, history) —
+  not casual chat. **Favour at 3 and at 6** (call in a favour to waive a monetary/material
+  cost when something goes wrong). At **2+ hearts**, a mailed letter returns a gift. Hearts
+  live on the profile, **not** on a card face — a repeated card *may* be the same animal
+  (your call), so you advance a friendship whenever you decide a flip is that friend. See
+  ruling A2 (book text supplied 2026-07-16; the old per-card model is superseded).
 
 **2.4–2.6 Attributes / derived / skills.** None. Character = name · species · age-word ·
 "how you came by the shop" · "who you were before" · "what books are to you" · birth moon
@@ -209,14 +213,21 @@ lists a "mayhem/mystery" flavour trio (non-mechanical prompt colour).
   days. **Ruling:** day 14.
 - **A7 — Books cap. ✅ CONFIRMED.** *Extra shelves* (Port Imes) is "can be purchased twice,"
   +100 each. **Ruling:** base 500, max **700**.
-- **A2 — Heart-tracked customers.** The book tracks hearts on "customer profiles" but this
-  excerpt doesn't enumerate named profiles. Ruling: treat **each of the 52 card archetypes**
-  as a heart-trackable profile (0–6) until the full book says otherwise.
+- **A2 — Heart-tracked customers. ✅ RESOLVED (book text supplied 2026-07-16).** The book's
+  *Returning customers* / *Gaining hearts* / *Customer profile* rules confirm hearts live on
+  **player-created, named customer profiles** (template: Name/Age/Hometown/Occupation/
+  Observations/Drawing), *not* on card archetypes. A profile is recorded **when and if the
+  player wants** (often after a few visits); a heart is filled only for meaningful shares;
+  favours at 3/6 waive a cost; 2+ hearts → letter gift. **Ruling:** implemented as a
+  Customer-Profiles system (`src/profiles.js`, Home *Friends* card, flip *Add to a friend*);
+  the earlier "each of 52 card faces = a profile" ruling is **superseded**. The old suit-rank
+  `hearts` map is retained on old saves for back-compat but no longer written.
 - **A3 — Floorplan.** No grid rules given. Ruling: implement as a **freeform labelled
   layout / notes canvas**, not a simulation.
-- **A4 — "Returning customers."** No RNG rule for recurrence given. Ruling: recurrence is
-  **player-driven** (the player marks a flip as a known face); the app supports it, doesn't
-  force it.
+- **A4 — "Returning customers." ✅ RESOLVED (same book text).** A repeated card **may or may
+  not** be the same animal — the player interprets it (same town → likelier to recur; new
+  town → likely new faces; a traveller can reappear elsewhere). No RNG rule; recurrence stays
+  **player-driven**, now expressed by adding a heart to the chosen profile from any flip.
 
 ---
 
@@ -267,7 +278,8 @@ lists a "mayhem/mystery" flavour trio (non-mechanical prompt colour).
 | `fishing.js` | Fishing card mini-game. |
 | `travel.js` | Travel legality, Journey prompts, Arrival roll, season travel rules. |
 | `repairs.js` | Repairs + tradesanimal lifecycle: trigger from daily task, standing card/travel penalties, self-fix via item, hire trade (next-day arrival + odd/even d6 timing + per-day fee), daily tick. |
-| `mail.js` | Letters → gifts: post-office availability by town/season, send to a heart-tracked customer, reply in 2× mail time (daily tick), 2+-heart gift = random current-town shop item. |
+| `mail.js` | Letters → gifts: post-office availability by town/season, send to a **profile** friend, reply in 2× mail time (daily tick), 2+-heart gift = random current-town shop item. |
+| `profiles.js` | Player-created **customer profiles** (template fields) + friendship **hearts** (0–6, change/clamp) + **favours** (earned at 3/6, `useFavour`). CRUD over `character.profiles`. |
 | `town.js` | Moored-town economy: restock, buy supplies/upgrades/travel-gear. |
 | `compendium.js` | Normalizes all reference data into searchable categories (customers, towns, recipes, fish, animals, plants, trades, occupations, moons, genres, items) + flat/scoped search. |
 | `screens.js` | Top-level screen renderers (home/day/journal/compendium/settings) + resource header + log view. |
@@ -300,7 +312,9 @@ characters/{id}
                mooredTown, raftReinforced:false, hasBulrushJacket, hasIceSkates }
   resources: { coins:100, books:500 }
   weatherEvent: { season, count:0..3 }                  // per 2.22, resets on rollover
-  hearts:    { "<suit>-<rank>": 0..6, favoursUsed[] }   // per A2
+  hearts:    { "<suit>-<rank>": 0..6 }                  // DEPRECATED (old saves); superseded by profiles (A2)
+  profiles:  [ { id, name, age, hometown, occupation, observations, description,
+                 hearts:0..6, favoursUsed, ts } ]        // player-created; hearts/favours live here (A2/A4)
   calendar:  { year, seasonIndex(0..4), day(1..20), weekName }
   supplies:  [ { name, qty } ]   caught:[ ... ]
   mail:      [ { kind, recipientKey, sentSeason, sentDay, countdown, price, gift? } ]
@@ -532,6 +546,7 @@ public.
 
 | Date | Change | Verification | Cache |
 |---|---|---|---|
+| 2026-07-16 | **Customer Profiles system (rulings A2/A4 resolved from supplied book text).** The book (*Returning customers* / *Gaining hearts* / *Customer profile* template) confirms hearts live on **player-created named profiles**, not card faces. New `src/profiles.js` (CRUD + `changeHeart`/`favoursAvailable`/`useFavour`) + `character.profiles[]` schema (old suit-rank `hearts` map deprecated, kept for back-compat). **Home Friends card** (`friendsCard`/`friendRow`): create/edit/delete profiles with the 6 template fields, ♥ N/6 +/−, favours-available pill + **Use favour** (waive a cost, logged to journal). **Flip → "＋ Friend"** (`befriendFromFlip`): add a heart to an existing profile or record a new one (obs prefilled from the customer). **Mail** recipients/gift-threshold moved from suit-rank hearts to profiles. SW shell +`profiles.js` → v0.21.0. Harness +8. | `npm test` **129/129**; headless @390px: created "Otter De/Hurst·Fisher", hearts→3 shows "1 favour available", Use favour (favoursUsed 1 + journal note), flip ＋Friend modal added a heart to existing (→4); mail recipients now profile-keyed; zero overflow, zero console errors | fox-curio-v0.21.0 |
 | 2026-07-15 | **Hearts: add a remove control + /6 label.** The customer heart button only ever incremented (clamped at 6, no way down). Generalised `addHeart`→`changeHeart(key, delta)`: the ♥ button now reads `♥ N/6` and adds (disabled at 6); a new `−` button removes a heart (disabled at 0). Favour/gift toasts still fire on the way up (2/3/6); a "Heart removed" toast on the way down. SW → v0.20.0. | headless @390px: forced a befriendable flip (spades-A), ♥0/6 with − disabled; +3→3, −1→2, maxed→6 with + disabled; store matched UI each step; zero overflow, zero console errors; `npm test` **121/121** | fox-curio-v0.20.0 |
 | 2026-07-15 | **Home inventory panel.** Added an **Inventory** card to the Home screen (`screens.inventoryCard`) surfacing what was tracked but never shown: **gear & upgrades** (`ownedSummary`), **supplies** (bought consumables + mail gifts, qty-aware, zero-qty hidden), **caught fish** (aggregated by name), and **signature items**, plus a coins/books line and a hint that buying happens at the moored town. Empty rows read "none yet". SW → v0.19.0. | `npm test` **121/121**; headless @390px: seeded char → Gear "Extra shelves ×1 (cap 600) · Record player · Ice skates", Supplies "BugOff Spray ×2 · Eucalyptus incense" (zero-qty hidden), Caught "Trout · Perch ×2", items shown; fresh char → 4×"none yet"; zero overflow, zero console errors | fox-curio-v0.19.0 |
 | 2026-07-15 | **Word-oracle inspiration roller (T30).** Added the d100 inspiration-word table (`WORD_ORACLE`, user-supplied) + `core.d100`. On the selling session (where task+customers render) a new **✨ Inspiration** card rolls **3 words**, with **Reroll**, an inline **Today's journal** textarea (autogrow), tap-a-word-**inserts-at-cursor**, **Insert all**, and **Save entry** (writes the day's journal entry). The draft (words+text) is module-scoped and **persists across the session's re-renders**, keyed to the day; cleared on Finish day. SW → v0.18.0. Harness +4. | `npm test` **121/121**; headless @390px: forced Bloom session (target 1), Inspiration card + 3 chips, insert-at-cursor ("The Change drifted by."), reroll swaps words & keeps text, text survives a customer-flip re-render, Save wrote entry (0→1) & cleared box; zero overflow, zero console errors | fox-curio-v0.18.0 |

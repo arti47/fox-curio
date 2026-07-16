@@ -206,22 +206,41 @@ await (async () => {
   });
 
   const Mail = await import('../src/mail.js');
+  const Prof = await import('../src/profiles.js');
   Store.reset();
-  Store.upsertCharacter({ id: 't4', identity: { name: 'Writer' }, calendar: { year: 1, seasonIndex: 0, day: 4, weekName: 'Thaw' }, resources: { coins: 500, books: 400 }, shop: { mooredTown: 'port_imes' }, hearts: { 'hearts-A': 3, 'spades-2': 1 } });
+  Store.upsertCharacter({ id: 't4', identity: { name: 'Writer' }, calendar: { year: 1, seasonIndex: 0, day: 4, weekName: 'Thaw' }, resources: { coins: 500, books: 400 }, shop: { mooredTown: 'port_imes' },
+    profiles: [{ id: 'pa', name: 'Ada', hearts: 3, favoursUsed: 0 }, { id: 'pb', name: 'Bo', hearts: 1, favoursUsed: 0 }] });
   const m0 = Store.activeCharacter();
   group('Mail (letters → gifts)', () => {
     ok('post office offers kinds this season', Mail.availableKinds(m0).length > 0);
-    ok('recipients come from filled hearts', Mail.letterRecipients(m0).length === 2);
+    ok('recipients come from profiles with hearts', Mail.letterRecipients(m0).length === 2 && Mail.letterRecipients(m0)[0].key === 'pa');
     const opt = Mail.availableKinds(m0)[0];
-    const send = Mail.sendLetter('hearts-A', opt.kind);
+    const send = Mail.sendLetter('pa', opt.kind);
     const m1 = Store.activeCharacter();
     ok('send deducts price + queues reply (2× mail time)', send.ok && m1.resources.coins === 500 - opt.price && m1.mail[0].countdown === opt.mailTime * 2);
     let g = 0; while (Store.activeCharacter().mail[0].countdown > 0 && g++ < 200) Store.update((s) => Mail.tickMail(s.characters[s.activeCharacterId], 1));
     const m2 = Store.activeCharacter();
     ok('reply at 2+ hearts returns a gift into supplies', m2.mail[0].countdown === 0 && !!m2.mail[0].gift && m2.supplies.some((x) => x.name === m2.mail[0].gift));
-    const send2 = Mail.sendLetter('spades-2', opt.kind);
+    const send2 = Mail.sendLetter('pb', opt.kind);
     let g2 = 0; while (Store.activeCharacter().mail[1].countdown > 0 && g2++ < 200) Store.update((s) => Mail.tickMail(s.characters[s.activeCharacterId], 1));
     ok('reply under 2 hearts returns no gift', send2.ok && !Store.activeCharacter().mail[1].gift);
+  });
+
+  Store.reset();
+  Store.upsertCharacter({ id: 'tp', identity: { name: 'P' }, calendar: { year: 1, seasonIndex: 0, day: 1, weekName: 'Thaw' }, resources: { coins: 100, books: 500 } });
+  group('Customer profiles + favours', () => {
+    const p = Prof.createProfile({ name: 'Otter De', hometown: 'Hurst', occupation: 'Fisher' });
+    ok('profile created with 0 hearts', Prof.listProfiles(Store.activeCharacter()).length === 1 && p.hearts === 0);
+    for (let i = 0; i < 3; i++) Prof.changeHeart(p.id, +1);
+    ok('hearts climb to 3', Prof.profileById(Store.activeCharacter(), p.id).hearts === 3);
+    ok('one favour available at 3', Prof.favoursAvailable(Prof.profileById(Store.activeCharacter(), p.id)) === 1);
+    for (let i = 0; i < 3; i++) Prof.changeHeart(p.id, +1); // to 6
+    ok('two favours available at 6', Prof.favoursAvailable(Prof.profileById(Store.activeCharacter(), p.id)) === 2);
+    ok('use favour decrements available', Prof.useFavour(p.id) && Prof.favoursAvailable(Prof.profileById(Store.activeCharacter(), p.id)) === 1);
+    ok('lowering below 6 drops that favour', Prof.changeHeart(p.id, -1).now === 5 && Prof.favoursAvailable(Prof.profileById(Store.activeCharacter(), p.id)) === 0);
+    ok('hearts clamp 0..6', Prof.changeHeart(p.id, -99).now === 0 && Prof.changeHeart(p.id, +99).now === 6);
+    Prof.deleteProfile(p.id);
+    ok('delete removes the profile', Prof.listProfiles(Store.activeCharacter()).length === 0);
   });
 
   const { onYearRollover } = await import('../src/calendar.js');
