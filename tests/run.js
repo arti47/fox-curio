@@ -270,6 +270,22 @@ await (async () => {
     ok('covered repair charges 0 on tick', Store.activeCharacter().resources.coins === 100);
   });
 
+  Store.reset();
+  Store.upsertCharacter({ id: 'te', identity: { name: 'E' }, calendar: { year: 1, seasonIndex: 0, day: 1, weekName: 'Thaw' }, resources: { coins: 50, books: 500 },
+    supplies: [{ name: 'Candles', qty: 2 }], caught: [{ name: 'Trout' }, { name: 'Trout' }], profiles: [{ id: 'pe', name: 'E', hearts: 3, favoursUsed: 1 }] });
+  group('Manual edits (house aid)', () => {
+    const c = () => Store.activeCharacter();
+    Store.update((s) => { s.characters[s.activeCharacterId].supplies.find((x) => x.name === 'Candles').qty -= 1; });
+    ok('supply qty adjust', c().supplies.find((x) => x.name === 'Candles').qty === 1);
+    Store.update((s) => { const ch = s.characters[s.activeCharacterId]; ch.supplies = ch.supplies.filter((x) => x.name !== 'Candles'); });
+    ok('supply remove', !c().supplies.some((x) => x.name === 'Candles'));
+    Store.update((s) => { const ch = s.characters[s.activeCharacterId]; const i = ch.caught.findIndex((f) => f.name === 'Trout'); if (i >= 0) ch.caught.splice(i, 1); });
+    ok('caught fish remove one', c().caught.filter((f) => f.name === 'Trout').length === 1);
+    ok('favour used at 3 hearts (1 used → 0 available)', Prof.favoursAvailable(c().profiles[0]) === 0);
+    Prof.resetFavours('pe');
+    ok('resetFavours restores availability', Prof.favoursAvailable(c().profiles[0]) === 1);
+  });
+
   const { onYearRollover } = await import('../src/calendar.js');
   Store.reset();
   Store.upsertCharacter({ id: 't5', identity: { name: 'Elder' }, calendar: { year: 1, seasonIndex: 4, day: 20, weekName: 'Awaken' }, resources: { coins: 100, books: 500 }, shop: { mooredTown: 'port_imes', leftovers: ['A ship in a bottle', 'A faded map', 'A brass key'] }, journal: [] });

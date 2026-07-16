@@ -13,7 +13,7 @@ import { runFishing } from './fishing.js';
 import { canTravel, travelDays, isUpstream, arrivalPrompt } from './travel.js';
 import { activeRepairs, hasRepairs, selfFix, hireTrade, tickRepairs, ownsItem, waiveRepairFee } from './repairs.js';
 import { availableKinds, letterRecipients, sendLetter, pendingMail, tickMail, KIND_LABEL } from './mail.js';
-import { listProfiles, createProfile, updateProfile, deleteProfile, changeHeart, favoursAvailable, totalFavours, spendAnyFavour } from './profiles.js';
+import { listProfiles, createProfile, updateProfile, deleteProfile, changeHeart, favoursAvailable, totalFavours, spendAnyFavour, resetFavours } from './profiles.js';
 import { RECIPES } from '../data-compendium.js';
 import { groupedHits } from './compendium.js';
 import { TOWNS, TRADES } from '../data-compendium.js';
@@ -131,6 +131,7 @@ function friendRow(c, p) {
     }),
   ]);
   if (fav > 0) actions.append(el('span', { class: 'pill', title: 'Spend at a cost — the “🎁 Use favour” button in town/repairs', text: `${fav} favour${fav === 1 ? '' : 's'} available` }));
+  if (p.favoursUsed > 0) actions.append(el('button', { class: 'btn btn--ghost btn--sm', text: 'Reset favours', title: 'Restore used favours', onClick: () => { resetFavours(p.id); go('home'); } }));
   rows.push(actions);
   return el('div', { class: 'friend', style: 'padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px' }, rows);
 }
@@ -201,25 +202,65 @@ function befriendFromFlip(f) {
 
 // Inventory — everything the bookseller owns: gear/upgrades, supplies, caught fish,
 // signature items. Surfaces `supplies` and `caught`, which were tracked but never shown.
+function setResource(kind, val, cap) {
+  let n = Math.max(0, Math.floor(Number(val) || 0));
+  if (cap != null) n = Math.min(n, cap);
+  Store.update((s) => { s.characters[s.activeCharacterId].resources[kind] = n; });
+  showToast(`${kind === 'coins' ? 'Coins' : 'Books'} set to ${n}.`); go('home');
+}
+function adjustSupply(name, delta) {
+  Store.update((s) => { const ch = s.characters[s.activeCharacterId]; const x = (ch.supplies || []).find((y) => y.name === name); if (!x) return; x.qty += delta; if (x.qty <= 0) ch.supplies = ch.supplies.filter((y) => y !== x); });
+  go('home');
+}
+function removeSupply(name) {
+  Store.update((s) => { const ch = s.characters[s.activeCharacterId]; ch.supplies = (ch.supplies || []).filter((y) => y.name !== name); });
+  showToast('Removed.'); go('home');
+}
+function removeCaught(name) {
+  Store.update((s) => { const ch = s.characters[s.activeCharacterId]; const i = (ch.caught || []).findIndex((f) => f.name === name); if (i >= 0) ch.caught.splice(i, 1); });
+  go('home');
+}
 function inventoryCard(c) {
-  const row = (label, value) => el('div', { class: 'row' }, [el('div', { class: 'row__text' }, [
-    el('b', { text: label }), el('span', { text: value || 'none yet' }),
-  ])]);
-  const supplies = (c.supplies || []).filter((x) => x.qty > 0)
-    .map((x) => `${x.name}${x.qty > 1 ? ` ×${x.qty}` : ''}`).join(' · ');
-  const caughtCounts = {};
-  for (const f of (c.caught || [])) caughtCounts[f.name] = (caughtCounts[f.name] || 0) + 1;
-  const caught = Object.entries(caughtCounts).map(([n, q]) => `${n}${q > 1 ? ` ×${q}` : ''}`).join(' · ');
-  const items = (c.identity.items || []).join(' · ');
-  return el('div', { class: 'card' }, [
+  const roRow = (label, value) => el('div', { class: 'row' }, [el('div', { class: 'row__text' }, [el('b', { text: label }), el('span', { text: value || 'none yet' })])]);
+  const resRow = (label, kind, cap) => {
+    const input = el('input', { type: 'number', min: '0', value: String(c.resources[kind]), 'aria-label': label, style: 'max-width:104px' });
+    if (cap != null) input.max = String(cap);
+    return el('div', { class: 'row' }, [
+      el('div', { class: 'row__text' }, [el('b', { text: label }), cap != null ? el('span', { text: `cap ${cap}` }) : '']),
+      el('div', { class: 'pill-row' }, [input, el('button', { class: 'btn btn--ghost btn--sm', text: 'Set', onClick: () => setResource(kind, input.value, cap) })]),
+    ]);
+  };
+  const card = el('div', { class: 'card' }, [
     el('h2', { text: 'Inventory' }),
-    el('p', { class: 'small muted', text: `${c.resources.coins} coins · ${c.resources.books}/${bookCap(c)} books` }),
-    row('Gear & upgrades', ownedSummary(c).join(' · ')),
-    row('Supplies', supplies),
-    row('Caught fish', caught),
-    row('Signature items', items),
-    el('p', { class: 'small muted', style: 'margin-top:8px', text: 'Buy supplies and gear at the town where you are moored (Visit town from the day).' }),
+    el('p', { class: 'small muted', text: 'Buy at the moored town. You can also hand-edit anything here.' }),
+    resRow('Coins', 'coins', null),
+    resRow('Books', 'books', bookCap(c)),
+    roRow('Gear & upgrades', ownedSummary(c).join(' · ')),
   ]);
+  // Supplies — adjust / remove
+  card.append(el('h3', { class: 'small', style: 'margin:10px 0 0', text: 'Supplies' }));
+  const sup = (c.supplies || []).filter((x) => x.qty > 0);
+  if (!sup.length) card.append(el('p', { class: 'small muted', text: 'none yet' }));
+  for (const x of sup) card.append(el('div', { class: 'row' }, [
+    el('div', { class: 'row__text' }, [el('b', { text: x.name }), el('span', { text: `×${x.qty}` })]),
+    el('div', { class: 'pill-row' }, [
+      el('button', { class: 'btn btn--ghost btn--sm', text: '＋', 'aria-label': `Add ${x.name}`, onClick: () => adjustSupply(x.name, +1) }),
+      el('button', { class: 'btn btn--ghost btn--sm', text: '−', 'aria-label': `Remove one ${x.name}`, onClick: () => adjustSupply(x.name, -1) }),
+      el('button', { class: 'btn btn--ghost btn--sm', text: 'Remove', onClick: () => removeSupply(x.name) }),
+    ]),
+  ]));
+  // Caught fish — remove one
+  card.append(el('h3', { class: 'small', style: 'margin:10px 0 0', text: 'Caught fish' }));
+  const counts = {};
+  for (const f of (c.caught || [])) counts[f.name] = (counts[f.name] || 0) + 1;
+  const names = Object.keys(counts);
+  if (!names.length) card.append(el('p', { class: 'small muted', text: 'none yet' }));
+  for (const n of names) card.append(el('div', { class: 'row' }, [
+    el('div', { class: 'row__text' }, [el('b', { text: n }), el('span', { text: `×${counts[n]}` })]),
+    el('button', { class: 'btn btn--ghost btn--sm', text: 'Remove one', onClick: () => removeCaught(n) }),
+  ]));
+  card.append(roRow('Signature items', (c.identity.items || []).join(' · ')));
+  return card;
 }
 
 // ---- Gated placeholders for later phases ----

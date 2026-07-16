@@ -62,6 +62,11 @@ export function useFavour(id) {
   return ok;
 }
 
+// Restore a profile's favours (house aid): clear favoursUsed so earned favours return.
+export function resetFavours(id) {
+  Store.update((s) => { const p = (s.characters[s.activeCharacterId].profiles || []).find((x) => x.id === id); if (p) p.favoursUsed = 0; });
+}
+
 // Total favours available across all friends, and spend one from the first friend that has it.
 export const totalFavours = (c) => listProfiles(c).reduce((n, p) => n + favoursAvailable(p), 0);
 export function spendAnyFavour() {
