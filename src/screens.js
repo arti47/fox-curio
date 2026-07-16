@@ -423,10 +423,17 @@ function flipRow(f) {
   const hearts = (c.hearts && c.hearts[key]) || 0;
   const right = el('div', { class: 'pill-row' });
   if (f.customer.deepen) {
-    right.append(el('button', {
-      class: 'btn btn--ghost btn--sm', text: `♥ ${hearts}`, title: 'They shared something — fill a heart',
-      onClick: () => addHeart(key, f.customer),
-    }));
+    const addBtn = el('button', {
+      class: 'btn btn--ghost btn--sm', text: `♥ ${hearts}/6`, title: 'They shared something — fill a heart',
+      onClick: () => changeHeart(key, +1, f.customer),
+    });
+    addBtn.disabled = hearts >= 6;
+    const remBtn = el('button', {
+      class: 'btn btn--ghost btn--sm', text: '−', 'aria-label': 'Remove a heart', title: 'Remove a heart',
+      onClick: () => changeHeart(key, -1),
+    });
+    remBtn.disabled = hearts <= 0;
+    right.append(addBtn, remBtn);
   }
   return el('div', { class: 'row' }, [
     el('div', { class: 'row__text' }, [
@@ -437,16 +444,22 @@ function flipRow(f) {
     right,
   ]);
 }
-function addHeart(key, customer) {
-  let now = 0;
+function changeHeart(key, delta, customer) {
+  let now = 0, prev = 0;
   Store.update((s) => {
     const ch = s.characters[s.activeCharacterId];
     ch.hearts = ch.hearts || {};
-    now = Math.min(6, (ch.hearts[key] || 0) + 1);
+    prev = ch.hearts[key] || 0;
+    now = Math.max(0, Math.min(6, prev + delta));
     ch.hearts[key] = now;
   });
-  if (now === 3 || now === 6) showToast(`${now} hearts — they grant you a favour!`);
-  else if (now === 2) showToast('2 hearts — a mailed letter now returns a gift.');
+  if (now === prev) return; // clamped at 0 or 6, nothing changed
+  if (delta > 0) {
+    if (now === 3 || now === 6) showToast(`${now} hearts — they grant you a favour!`);
+    else if (now === 2) showToast('2 hearts — a mailed letter now returns a gift.');
+  } else {
+    showToast(`Heart removed — now ${now}.`);
+  }
   go('day');
 }
 
