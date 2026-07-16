@@ -220,21 +220,23 @@ function removeCaught(name) {
   Store.update((s) => { const ch = s.characters[s.activeCharacterId]; const i = (ch.caught || []).findIndex((f) => f.name === name); if (i >= 0) ch.caught.splice(i, 1); });
   go('home');
 }
+async function editResource(label, kind, cap) {
+  const c = Store.activeCharacter();
+  const v = await promptModal(`Enter a new amount${cap != null ? ` (max ${cap})` : ''}.`, { title: `Edit ${label.toLowerCase()}`, value: String(c.resources[kind]), okLabel: 'Save' });
+  if (v == null || v.trim() === '') return;
+  setResource(kind, v, cap);
+}
 function inventoryCard(c) {
   const roRow = (label, value) => el('div', { class: 'row' }, [el('div', { class: 'row__text' }, [el('b', { text: label }), el('span', { text: value || 'none yet' })])]);
-  const resRow = (label, kind, cap) => {
-    const input = el('input', { type: 'number', min: '0', value: String(c.resources[kind]), 'aria-label': label, style: 'max-width:104px' });
-    if (cap != null) input.max = String(cap);
-    return el('div', { class: 'row' }, [
-      el('div', { class: 'row__text' }, [el('b', { text: label }), cap != null ? el('span', { text: `cap ${cap}` }) : '']),
-      el('div', { class: 'pill-row' }, [input, el('button', { class: 'btn btn--ghost btn--sm', text: 'Set', onClick: () => setResource(kind, input.value, cap) })]),
-    ]);
-  };
+  const resRow = (label, kind, icon, cap) => el('div', { class: 'row' }, [
+    el('div', { class: 'row__text' }, [el('b', {}, [`${icon} ${label}`]), el('span', { class: 'res-value', text: `${c.resources[kind]}${cap != null ? ` / ${cap}` : ''}` })]),
+    el('button', { class: 'btn btn--ghost btn--sm', text: '✎ Edit', 'aria-label': `Edit ${label}`, onClick: () => editResource(label, kind, cap) }),
+  ]);
   const card = el('div', { class: 'card' }, [
     el('h2', { text: 'Inventory' }),
-    el('p', { class: 'small muted', text: 'Buy at the moored town. You can also hand-edit anything here.' }),
-    resRow('Coins', 'coins', null),
-    resRow('Books', 'books', bookCap(c)),
+    el('p', { class: 'small muted', text: 'Buy at the moored town. Tap ✎ Edit to hand-adjust anything here.' }),
+    resRow('Coins', 'coins', '🪙', null),
+    resRow('Books', 'books', '📚', bookCap(c)),
     roRow('Gear & upgrades', ownedSummary(c).join(' · ')),
   ]);
   // Supplies — adjust / remove
