@@ -7,17 +7,17 @@ export const townByKey = (k) => TOWNS.find((t) => t.key === k);
 const mechFor = (name) => ITEMS.find((i) => i.name === name);
 
 // Restock the shop for this season. Returns {ok,msg}.
-export function restock(character) {
+export function restock(character, free = false) {
   const cost = season(character.calendar.seasonIndex).restock;
   if (cost == null) return { ok: false, msg: 'Trade stops in Brisk — no restocking until Bloom.' };
-  if (character.resources.coins < cost) return { ok: false, msg: `Not enough coins (need ${cost}).` };
-  Store.update((s) => { const ch = s.characters[s.activeCharacterId]; ch.resources.coins -= cost; ch.resources.books = 500; });
-  return { ok: true, msg: `Restocked for ${cost} coins — new stock arrives on the next trade boat.` };
+  if (!free && character.resources.coins < cost) return { ok: false, msg: `Not enough coins (need ${cost}).` };
+  Store.update((s) => { const ch = s.characters[s.activeCharacterId]; if (!free) ch.resources.coins -= cost; ch.resources.books = 500; });
+  return { ok: true, msg: free ? 'Restocked with a favour — arrives on the next trade boat.' : `Restocked for ${cost} coins — new stock arrives on the next trade boat.` };
 }
 
 // Buy a shop item. Mechanical items apply their effect; everything else is a supply.
-export function buy(character, item) {
-  if (character.resources.coins < item.price) return { ok: false, msg: `Not enough coins (need ${item.price}).` };
+export function buy(character, item, free = false) {
+  if (!free && character.resources.coins < item.price) return { ok: false, msg: `Not enough coins (need ${item.price}).` };
   const mech = mechFor(item.name);
   // guard against duplicate one-off upgrades
   if (mech) {
@@ -30,7 +30,7 @@ export function buy(character, item) {
   }
   Store.update((s) => {
     const ch = s.characters[s.activeCharacterId];
-    ch.resources.coins -= item.price;
+    if (!free) ch.resources.coins -= item.price;
     if (!mech) { addSupply(ch, item.name); return; }
     ch.shop.upgrades = ch.shop.upgrades || { shelves: 0, recordPlayer: false };
     switch (mech.effect) {

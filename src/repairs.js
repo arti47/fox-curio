@@ -93,6 +93,11 @@ export function hireTrade(flag) {
   return msg || { ok: false, text: 'Nothing to hire.' };
 }
 
+// Mark a repair's tradesanimal fee as covered by a friend's favour (no per-day charge).
+export function waiveRepairFee(flag) {
+  Store.update((s) => { const r = s.characters[s.activeCharacterId].shop.repairs && s.characters[s.activeCharacterId].shop.repairs[flag]; if (r) r.favourCovered = true; });
+}
+
 // ---- daily tick: advance hired tradesanimals. Mutates ch; returns log lines. ----
 // Called once per advanced day (End Day, day off, per travelled day).
 export function tickRepairs(ch, days = 1) {
@@ -102,11 +107,11 @@ export function tickRepairs(ch, days = 1) {
     for (const [flag, r] of Object.entries(reps)) {
       if (!r.hired) continue;
       if (r.arriveCountdown > 0) { r.arriveCountdown -= 1; continue; } // travelling to you this day
-      const cost = r.perDay || 0;
+      const cost = r.favourCovered ? 0 : (r.perDay || 0); // a friend's favour waives the fee
       ch.resources.coins = Math.max(0, ch.resources.coins - cost);
       const roll = d6();
       if (roll % 2 === 1) { out.push(`${r.label}: repaired (d6→${roll}).`); delete reps[flag]; }
-      else out.push(`${r.label}: still under repair (d6→${roll}); paid ${cost}c.`);
+      else out.push(`${r.label}: still under repair (d6→${roll})${cost ? `; paid ${cost}c` : ' (favour)'}.`);
     }
   }
   return out;

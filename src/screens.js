@@ -11,9 +11,9 @@ import * as Engine from './engine.js';
 import { townByKey, restock, buy, ownedSummary, tradeBooksForCoins } from './town.js';
 import { runFishing } from './fishing.js';
 import { canTravel, travelDays, isUpstream, arrivalPrompt } from './travel.js';
-import { activeRepairs, hasRepairs, selfFix, hireTrade, tickRepairs, ownsItem } from './repairs.js';
+import { activeRepairs, hasRepairs, selfFix, hireTrade, tickRepairs, ownsItem, waiveRepairFee } from './repairs.js';
 import { availableKinds, letterRecipients, sendLetter, pendingMail, tickMail, KIND_LABEL } from './mail.js';
-import { listProfiles, createProfile, updateProfile, deleteProfile, changeHeart, favoursAvailable, useFavour } from './profiles.js';
+import { listProfiles, createProfile, updateProfile, deleteProfile, changeHeart, favoursAvailable, totalFavours, spendAnyFavour } from './profiles.js';
 import { RECIPES } from '../data-compendium.js';
 import { groupedHits } from './compendium.js';
 import { TOWNS, TRADES } from '../data-compendium.js';
@@ -75,6 +75,20 @@ export function renderHome(root) {
 function stat(n, label) { return el('div', { class: 'stat' }, [el('b', { text: String(n) }), el('span', { text: label })]); }
 
 // ---- Friends / customer profiles (book: named profiles, hearts, favours) ----
+// A "Use favour" button that waives a cost (runs doFree at 0 coins), spending one
+// favour from any friend that has one. Returns null when no favours are available.
+function favourBtn(c, label, doFree, route) {
+  if (totalFavours(c) <= 0) return null;
+  return el('button', {
+    class: 'btn btn--ghost btn--sm', text: '🎁 Use favour', title: "Waive this cost with a friend's favour",
+    onClick: () => {
+      const name = spendAnyFavour(); if (!name) return;
+      doFree();
+      Store.update((s) => { const ch = s.characters[s.activeCharacterId]; ch.journal.push({ id: 'j' + Date.now(), year: c.calendar.year, seasonIndex: c.calendar.seasonIndex, day: c.calendar.day, title: 'Favour', body: `Called in ${name}'s favour — ${label} waived.\n`, ts: Date.now() }); });
+      showToast(`Favour used — ${label} waived.`); go(route);
+    },
+  });
+}
 function heartToast(prev, now) {
   if (now === prev) return;
   if (now > prev) {
@@ -116,16 +130,7 @@ function friendRow(c, p) {
       },
     }),
   ]);
-  if (fav > 0) actions.append(
-    el('span', { class: 'pill', text: `${fav} favour${fav === 1 ? '' : 's'} available` }),
-    el('button', {
-      class: 'btn btn--ghost btn--sm', text: 'Use favour', onClick: () => {
-        if (!useFavour(p.id)) return;
-        Store.update((s) => { const ch = s.characters[s.activeCharacterId]; ch.journal.push({ id: 'j' + Date.now(), year: c.calendar.year, seasonIndex: c.calendar.seasonIndex, day: c.calendar.day, title: 'Favour', body: `Called in ${p.name}'s favour to waive a cost.\n`, ts: Date.now() }); });
-        showToast('Favour called in — waive the cost.'); go('home');
-      },
-    }),
-  );
+  if (fav > 0) actions.append(el('span', { class: 'pill', title: 'Spend at a cost — the “🎁 Use favour” button in town/repairs', text: `${fav} favour${fav === 1 ? '' : 's'} available` }));
   rows.push(actions);
   return el('div', { class: 'friend', style: 'padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px' }, rows);
 }
@@ -576,7 +581,10 @@ export function renderTown(root) {
     el('h2', { text: 'Restock' }),
     el('p', { class: 'small muted', text: s.restock == null ? 'Trade stops in Brisk — no restocking until Bloom.' : `Refill to 500 books for ${s.restock} coins (arrives next day).` }),
   ]);
-  if (s.restock != null) rc.append(el('button', { class: 'btn', text: `Restock (${s.restock}c)`, onClick: () => { const r = restock(c); showToast(r.msg); go('town'); } }));
+  if (s.restock != null) rc.append(el('div', { class: 'pill-row' }, [
+    el('button', { class: 'btn', text: `Restock (${s.restock}c)`, onClick: () => { const r = restock(c); showToast(r.msg); go('town'); } }),
+    favourBtn(c, 'restock', () => restock(c, true), 'town'),
+  ]));
   root.append(rc);
 
   // Trade books for coins (1:1) — the fallback when coins run low. §2.3/§2.16.
@@ -602,7 +610,10 @@ export function renderTown(root) {
     for (const item of shop.items) {
       card.append(el('div', { class: 'row' }, [
         el('div', { class: 'row__text' }, [el('b', { text: item.name }), el('span', { text: item.note || '' })]),
-        el('button', { class: 'btn btn--ghost btn--sm', text: `${item.price}c`, onClick: () => { const r = buy(c, item); showToast(r.msg); go('town'); } }),
+        el('div', { class: 'pill-row' }, [
+          el('button', { class: 'btn btn--ghost btn--sm', text: `${item.price}c`, onClick: () => { const r = buy(c, item); showToast(r.msg); go('town'); } }),
+          favourBtn(c, item.name, () => buy(c, item, true), 'town'),
+        ]),
       ]));
     }
     root.append(card);
@@ -658,6 +669,15 @@ function repairsCard(c) {
     if (r.trade && !r.hired) {
       const t = TRADES.find((x) => x.key === r.trade);
       actions.append(el('button', { class: 'btn btn--ghost btn--sm', text: `Hire ${t.name} (${t.perDay}c/day)`, onClick: () => { const m = hireTrade(r.key); showToast(m.text); go('town'); } }));
+      if (totalFavours(c) > 0) actions.append(el('button', {
+        class: 'btn btn--ghost btn--sm', text: '🎁 Hire (favour)', title: 'Hire and waive the fee with a favour',
+        onClick: () => {
+          const name = spendAnyFavour(); if (!name) return;
+          hireTrade(r.key); waiveRepairFee(r.key);
+          Store.update((s) => { const ch = s.characters[s.activeCharacterId]; ch.journal.push({ id: 'j' + Date.now(), year: c.calendar.year, seasonIndex: c.calendar.seasonIndex, day: c.calendar.day, title: 'Favour', body: `Called in ${name}'s favour — ${t.name}'s repair fee waived.\n`, ts: Date.now() }); });
+          showToast(`Favour used — ${t.name}'s fee waived.`); go('town');
+        },
+      }));
     }
     card.append(el('div', { class: 'row' }, [
       el('div', { class: 'row__text' }, [el('b', { text: r.label }), el('span', { text: `${status}${penalty ? ' · ' + penalty : ''}` })]),
@@ -683,7 +703,10 @@ function postOfficeCard(c) {
     card.append(
       el('div', { class: 'field' }, [el('label', { class: 'small muted', text: 'To' }), rSel]),
       el('div', { class: 'field' }, [el('label', { class: 'small muted', text: 'By' }), kSel]),
-      el('button', { class: 'btn', text: 'Send letter', onClick: () => { const r = sendLetter(rSel.value, kSel.value); showToast(r.msg); go('town'); } }),
+      el('div', { class: 'pill-row' }, [
+        el('button', { class: 'btn', text: 'Send letter', onClick: () => { const r = sendLetter(rSel.value, kSel.value); showToast(r.msg); go('town'); } }),
+        favourBtn(c, 'postage', () => sendLetter(rSel.value, kSel.value, true), 'town'),
+      ]),
     );
   }
   if (pending.length) {

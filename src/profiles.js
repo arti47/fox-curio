@@ -61,3 +61,14 @@ export function useFavour(id) {
   });
   return ok;
 }
+
+// Total favours available across all friends, and spend one from the first friend that has it.
+export const totalFavours = (c) => listProfiles(c).reduce((n, p) => n + favoursAvailable(p), 0);
+export function spendAnyFavour() {
+  let name = null;
+  Store.update((s) => {
+    const p = (s.characters[s.activeCharacterId].profiles || []).find((x) => favoursAvailable(x) > 0);
+    if (p) { p.favoursUsed = (p.favoursUsed || 0) + 1; name = p.name; }
+  });
+  return name;
+}

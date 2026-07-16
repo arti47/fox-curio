@@ -243,6 +243,33 @@ await (async () => {
     ok('delete removes the profile', Prof.listProfiles(Store.activeCharacter()).length === 0);
   });
 
+  const TownF = await import('../src/town.js');
+  Store.reset();
+  Store.upsertCharacter({ id: 'tf', identity: { name: 'F' }, calendar: { year: 1, seasonIndex: 0, day: 1, weekName: 'Thaw' }, resources: { coins: 100, books: 300 }, shop: { mooredTown: 'ennerck' },
+    profiles: [{ id: 'pf', name: 'Fen', hearts: 6, favoursUsed: 0 }] });
+  group('Favour waives costs (auto-zero)', () => {
+    const c0 = Store.activeCharacter();
+    ok('two favours at 6 hearts', Prof.totalFavours(c0) === 2);
+    // free restock: books reset, no coin change, one favour spent
+    const before = c0.resources.coins;
+    TownF.restock(c0, true); Prof.spendAnyFavour();
+    const c1 = Store.activeCharacter();
+    ok('free restock: coins unchanged, books 500, favour spent', c1.resources.coins === before && c1.resources.books === 500 && Prof.totalFavours(c1) === 1);
+    // free buy: no coin change
+    TownF.buy(c1, { name: 'BugOff Spray', price: 30 }, true);
+    ok('free buy: coins unchanged + supply added', Store.activeCharacter().resources.coins === before && Store.activeCharacter().supplies.some((x) => x.name === 'BugOff Spray'));
+    ok('spendAnyFavour returns null when none left', (Prof.spendAnyFavour(), Prof.totalFavours(Store.activeCharacter()) === 0) && Prof.spendAnyFavour() === null);
+  });
+
+  const RepF = await import('../src/repairs.js');
+  Store.reset();
+  Store.upsertCharacter({ id: 'tw', identity: { name: 'W' }, calendar: { year: 1, seasonIndex: 0, day: 2, weekName: 'Thaw' }, resources: { coins: 100, books: 500 },
+    shop: { mooredTown: 'ennerck', repairs: { chimney: { label: 'Clogged chimney', trade: 'firesmith', hired: true, arriveCountdown: 0, perDay: 60, favourCovered: true } } } });
+  group('Favour-covered repair fee', () => {
+    RepF.tickRepairs(Store.activeCharacter(), 1);
+    ok('covered repair charges 0 on tick', Store.activeCharacter().resources.coins === 100);
+  });
+
   const { onYearRollover } = await import('../src/calendar.js');
   Store.reset();
   Store.upsertCharacter({ id: 't5', identity: { name: 'Elder' }, calendar: { year: 1, seasonIndex: 4, day: 20, weekName: 'Awaken' }, resources: { coins: 100, books: 500 }, shop: { mooredTown: 'port_imes', leftovers: ['A ship in a bottle', 'A faded map', 'A brass key'] }, journal: [] });

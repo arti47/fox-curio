@@ -36,14 +36,14 @@ export function letterRecipients(character) {
 }
 
 // Send a letter. Returns {ok,msg}.
-export function sendLetter(recipientKey, kind) {
+export function sendLetter(recipientKey, kind, free = false) {
   let res = { ok: false, msg: 'Could not send.' };
   Store.update((s) => {
     const ch = s.characters[s.activeCharacterId];
     const opt = availableKinds(ch).find((o) => o.kind === kind);
     if (!opt) { res = { ok: false, msg: 'That post is unavailable here this season.' }; return; }
-    if (ch.resources.coins < opt.price) { res = { ok: false, msg: `Not enough coins (need ${opt.price}).` }; return; }
-    ch.resources.coins -= opt.price;
+    if (!free && ch.resources.coins < opt.price) { res = { ok: false, msg: `Not enough coins (need ${opt.price}).` }; return; }
+    if (!free) ch.resources.coins -= opt.price;
     ch.mail.push({
       kind, recipientKey,
       sentSeason: ch.calendar.seasonIndex, sentDay: ch.calendar.day,
